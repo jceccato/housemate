@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6
+
+- Ship baseline skills and commands in the kit
+- Voice review fixes: send a request once, tell once when done, honest reply
+
 ## 0.1.5
 
 - Voice review fixes: send a request once, tell once when done, honest reply
