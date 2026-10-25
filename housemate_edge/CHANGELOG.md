@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.18
+
+- Drop ingress_panel: the Supervisor ignores it in config.yaml; the docs say how to show the panel (#18)
+
 ## 0.1.17
 
 - Review fixes: Core restart step, stable-channel and database-backup checks, honest delivery (#17)
