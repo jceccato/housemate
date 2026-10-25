@@ -14,7 +14,7 @@ import unittest
 
 import yaml
 
-from harness import ADDON_DIR, IMAGE, AddOn, docker, find_secret_everywhere
+from harness import ADDON_DIR, AddOn, docker, find_secret_everywhere
 
 KEY = "hm-test-key-7f3a9c1e5b2d4086a1c3e5f70912b4d6"
 CONFIG_FILES = {
@@ -146,8 +146,14 @@ class RestartKeepsState(unittest.TestCase):
             "cd /config && echo '{\"workbench.colorTheme\": \"Default Dark Modern\"}' "
             "> /data/code-server/User/settings.json"
         )
-        a.exec("cd /config && opencode db 'select count(*) from session' >/dev/null 2>&1; true")
-        before_db = a.exec("sha256sum /data/opencode/data/opencode/opencode.db").stdout.split()[0]
+        # A real OpenCode session, made through its own server API.
+        a.exec(
+            "cd /config && (opencode serve --port 4097 >/dev/null 2>&1 &); "
+            "for i in $(seq 30); do curl -sf localhost:4097/session >/dev/null && break; sleep 1; done; "
+            "curl -sf -X POST localhost:4097/session -H 'content-type: application/json' -d '{\"title\":\"survivor\"}'"
+        )
+        self.assertIn("survivor", a.exec("cd /config && opencode session list").stdout)
+        shipped_rules = a.exec("cat /usr/share/housemate/AGENTS.md").stdout
         # The user tampers with the built-in rules: the next start restores them.
         a.exec("echo tampered > /data/opencode/config/opencode/AGENTS.md")
         a.exec("echo '# my notes' > /config/AGENTS.md")  # the user's own file
@@ -158,13 +164,13 @@ class RestartKeepsState(unittest.TestCase):
         self.assertIn("Default Dark Modern", a.read_data("code-server/User/settings.json"))
         self.assertTrue(a.data_exists("opencode/data/opencode/opencode.db"))
         self.assertEqual((a.config / "AGENTS.md").read_text(), "# my notes\n")
-        self.assertNotEqual(a.read_data("opencode/config/opencode/AGENTS.md").strip(), "tampered")
+        self.assertEqual(a.read_data("opencode/config/opencode/AGENTS.md"), shipped_rules)
+        self.assertIn("survivor", a.exec("cd /config && opencode session list").stdout)
         config = json.loads(a.read_data("opencode/config/opencode/opencode.json"))
         self.assertEqual(config["provider"]["opencode-go"]["options"]["apiKey"], self.NEW)
         # The old key is gone from everywhere, and the new one is where it belongs.
         self.assertEqual(find_secret_everywhere(a, self.OLD), [])
         self.assertEqual(find_secret_everywhere(a, self.NEW), [])
-        del before_db
 
 
 class ZenWithoutKey(unittest.TestCase):
@@ -219,7 +225,7 @@ class Manifest(unittest.TestCase):
         c = self.config
         self.assertTrue(c["ingress"])
         self.assertEqual(c["ingress_port"], 1337)
-        self.assertTrue(c.get("panel_admin", True))
+        self.assertIs(c["panel_admin"], True)
         self.assertNotIn("ports", c)
         self.assertNotIn("host_network", c)
 

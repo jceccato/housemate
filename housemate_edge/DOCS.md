@@ -17,9 +17,9 @@ editor's title bar.
 | `provider` | `go` for OpenCode Go, `zen` for OpenCode Zen. |
 | `api_key` | Your key from [opencode.ai](https://opencode.ai). Optional with Zen, whose free models need none. |
 
-The key is written to OpenCode's provider configuration when the add-on starts
-and is kept nowhere else: not in the logs, not on a command line, not in your
-`/config`. Restart the add-on after changing an option.
+The key is written to OpenCode's provider configuration when the add-on starts.
+Besides the add-on's own private options and data, it is not put in the logs,
+on a command line, or in your `/config`. Restart the add-on after changing an option.
 
 OpenCode Go limits requests to an allowlist of IP addresses. If calls start
 failing after your home address changes, check the allowlist on your account.

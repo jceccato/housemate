@@ -1,6 +1,6 @@
 name: Tests
 
-# Two triggers and no more, as in the publish workflow's prior art (tv-taplist):
+# Two triggers and no more:
 #
 #   pull_request   the suite runs on every pull request, so a red build is seen
 #                  before a merge, not after an image has been published.
