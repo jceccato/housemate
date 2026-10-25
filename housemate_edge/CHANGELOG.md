@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.10
+
+- Orchestrator review fixes: gated tickets stay on the frontier, name the next commands up front, one script rule
+- Orchestrator: follow a command the user has typed; keep the ticket's own status form
+- Add the orchestrator skill: size a request, grill or yolo, work tickets through sub-agents
+- Edge's panel is titled Housemate (edge); document the skills pin
+- Stage a changed kit even when the kit version was not bumped
+
 ## 0.1.9
 
 - Edge's panel is titled Housemate (edge); document the skills pin
