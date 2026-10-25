@@ -26,7 +26,9 @@ environment):
 | `restart-core` | Configuration check, then one Core restart (HACS integrations take effect on it), then wait until it is back |
 | `reboot` | Reboot the host (after an OS update) |
 | `health --baseline F` | Compare now with the baseline |
-| `status` | What this review has already done today |
+| `approved install\|restart` | Record an approval the moment the person gives it |
+| `finish` | Record that the review is over |
+| `status` | What this review has already done, and the approvals given |
 
 ## 1. The read-only report
 
@@ -61,7 +63,9 @@ Ask with the `question` tool, so a notification reaches the user's phone.
 
 The user may give both at the start ("do it all"), or leave the restart to be
 asked at the moment it comes. Never install before the first, never restart
-before the second.
+before the second. Record each with `housemate-updates approved install` and
+`approved restart`: with both on record, Housemate carries the review on by itself
+after a reboot or its own update, in the same chat.
 
 ## 3. Back up, once
 
@@ -95,8 +99,10 @@ or a Supervisor not on the stable channel, is left alone and reported.
 Housemate's own update goes last and ends this chat. Before it, write down for
 the user where things stand (what landed, what is left, where the backup is);
 after it the add-on starts again and the user can open a fresh chat. `status`
-shows what was done today, if the review was cut short by a reboot: carry on
-from there.
+shows what was done and which approvals were given, if the review was cut short by
+a reboot, a Housemate update or the model running out of allowance: carry on from
+there, never repeating an update that landed. With both approvals on record the
+add-on does this by itself when it starts again. When nothing is left, `finish`.
 
 If kit changes are waiting as incoming, offer the `incoming-review` skill last.
 
