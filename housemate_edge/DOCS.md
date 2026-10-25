@@ -133,9 +133,10 @@ network's gateway, `172.30.32.1`) and refuses every other add-on on that network
   add-ons cannot reach it.
 - OpenCode's own server listens on the add-on's loopback and nowhere else.
 - The voice endpoint: Home Assistant Core only, as above.
-- The panel is in the sidebar from the first install. If your sidebar hides it,
-  switch on **Show in sidebar** on the add-on's Info page, or open
-  `/app/<slug>` (for the edge add-on, `/app/<repository id>_housemate_edge`).
+- After installing, the panel is not in the sidebar yet: Home Assistant leaves
+  that to you. Switch on **Show in sidebar** on the add-on's Info page, or open
+  **Open web UI** there. The page is also at `/app/<slug>` (for the edge add-on,
+  `/app/<repository id>_housemate_edge`).
 
 ## Updates
 

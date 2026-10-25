@@ -262,8 +262,12 @@ class Manifest(unittest.TestCase):
         self.assertNotIn("ports", c)
         self.assertNotIn("host_network", c)
 
-    def test_panel_is_in_the_sidebar_after_install(self):
-        self.assertIs(self.config["ingress_panel"], True)
+    def test_the_docs_say_how_to_show_the_panel(self):
+        # config.yaml cannot put the panel in the sidebar (ingress_panel is the
+        # user's own switch, ignored there: checked on a cold install), so the
+        # docs must say how.
+        self.assertNotIn("ingress_panel", self.config)
+        self.assertIn("Show in sidebar", (ADDON_DIR / "DOCS.md").read_text())
 
     def test_access_is_declared(self):
         c = self.config
