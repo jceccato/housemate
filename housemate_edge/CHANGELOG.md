@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.15
+
+- Reach the panel only through Ingress and the voice endpoint only from Core (#16)
+
 ## 0.1.14
 
 - Add the daily update review: one summary, a briefed chat, two approvals (#15)
