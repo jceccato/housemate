@@ -184,6 +184,7 @@ def stable_config(edge_text, version):
         (r"^name: Housemate \(edge\) *$", "name: Housemate"),
         (r"^slug: housemate_edge *$", "slug: housemate"),
         (r"^image: (\S+)-housemate-edge *$", r"image: \1-housemate"),
+        (r"^panel_title: Housemate \(edge\) *$", "panel_title: Housemate"),
     ]
     out = edge_text
     for pattern, repl in subs:

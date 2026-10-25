@@ -90,6 +90,12 @@ The Mend Renovate app (free for public repositories), configured in
   recomputes them from the downloads on Renovate's pull request
   (`pin_checksums.py`) and pushes to the branch; CI then runs on the corrected head.
   After changing a version by hand, run `python3 .github/scripts/pin_checksums.py housemate_edge/Dockerfile`.
+- The Matt Pocock skills revision is pinned in the Dockerfile as
+  `MATT_SKILLS_REVISION`, under `# renovate: git-refs https://github.com/mattpocock/skills main`,
+  so Renovate proposes each new upstream commit. The build checks the shipped
+  skill/command split against upstream's `disable-model-invocation` flags and fails
+  if they disagree, so a bump that flips a flag stalls its automerge by design: a
+  person updates the split, then merges.
 - The OpenCode editor extension (`OPENCODE_EXTENSION_VERSION`) is not tracked.
 
 ## What the repository needs (the maintainer's settings)

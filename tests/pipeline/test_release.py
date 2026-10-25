@@ -26,7 +26,7 @@ image: ghcr.io/jceccato/{arch}-housemate-edge
 arch:
   - aarch64
   - amd64
-panel_title: Housemate
+panel_title: Housemate (edge)
 options:
   provider: go
 """
@@ -143,6 +143,7 @@ class Promotion(unittest.TestCase):
         self.assertIn("slug: housemate\n", out)
         self.assertIn("image: ghcr.io/jceccato/{arch}-housemate\n", out)
         self.assertEqual(release.read_version(out), "0.1.3")
+        self.assertIn("panel_title: Housemate\n", out)
         self.assertIn("provider: go", out)
         self.assertNotIn("edge", out.split("# comment")[0])
 

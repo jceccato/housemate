@@ -21,7 +21,7 @@ ingress: true
 ingress_port: 1337
 ingress_stream: true
 panel_icon: mdi:robot-happy-outline
-panel_title: Housemate
+panel_title: Housemate (edge)
 panel_admin: true
 # Home Assistant's REST API and the Supervisor API (manager role).
 homeassistant_api: true
