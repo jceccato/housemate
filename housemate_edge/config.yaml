@@ -20,9 +20,8 @@ boot: auto
 # only the Supervisor's Ingress proxy reach the panel.
 ingress: true
 ingress_port: 1337
-# Not in the sidebar after install: ingress_panel is the user's switch ("Show in
-# sidebar" on the Info page), the Supervisor reads it from its own store and
-# ignores it here (tested on a cold install). DOCS.md says how.
+# ingress_panel is ignored here (tested on a cold install): the add-on switches
+# its sidebar entry on itself, once, on its first start (init-housemate).
 ingress_stream: true
 panel_icon: mdi:robot-happy-outline
 panel_title: Housemate (edge)
@@ -44,5 +43,6 @@ options:
 schema:
   provider: list(go|zen)
   api_key: password?
+  model: str?
   review_notify: str?
   review_time: match(^([01][0-9]|2[0-3]):[0-5][0-9]$)?

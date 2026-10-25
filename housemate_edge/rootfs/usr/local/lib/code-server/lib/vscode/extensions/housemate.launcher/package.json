@@ -1,0 +1,20 @@
+{
+  "name": "launcher",
+  "displayName": "Housemate",
+  "description": "Opens Housemate's agent (OpenCode) in the editor area when the panel opens.",
+  "version": "1.0.0",
+  "publisher": "housemate",
+  "license": "MIT",
+  "engines": { "vscode": "^1.94.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "extensionKind": ["workspace"],
+  "contributes": {
+    "commands": [
+      { "command": "housemate.openAgent", "title": "Housemate: Open the agent (newest chat)" },
+      { "command": "housemate.newChat", "title": "Housemate: Start a new chat" },
+      { "command": "housemate.sessions", "title": "Housemate: Choose another recent chat" }
+    ]
+  }
+}

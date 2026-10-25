@@ -8,9 +8,28 @@ releases; the stable add-on, **Housemate**, is the one to rely on.
 ## What it gives you
 
 A **Housemate** panel in the sidebar (administrators only): code-server with
-your `/config` open and [OpenCode](https://opencode.ai) in its terminal. Open a
-terminal in the panel and run `opencode`, or use the OpenCode button in the
-editor's title bar.
+your `/config` open and [OpenCode](https://opencode.ai) already running.
+
+### What you see when you open the panel
+
+OpenCode opens by itself in a large tab in the editor area, on your newest chat,
+so a notification's link (a voice job, the update review) lands on the chat it
+started. Opening the panel again does not start a second OpenCode. Visual Studio
+Code's own AI chat is hidden, so Housemate's agent is the only one on screen. The editor starts in a dark theme; pick another in the settings and it stays.
+
+On the first start the panel is switched on in the sidebar by itself. To hide it,
+turn off **Show in sidebar** on the add-on's Info page; Housemate never switches it
+back on.
+
+To **start a new chat**, click **New chat** in the bar at the bottom, or open the
+command palette (`F1`) and run **Housemate: Start a new chat**. To **go back to an
+earlier chat**, click **Chats** (or run **Housemate: Choose another recent chat**)
+and pick one; inside OpenCode, `/sessions` does the same. If you close the
+OpenCode tab, run **Housemate: Open the agent (newest chat)**.
+
+OpenCode may read Housemate's own files (`/usr/share/housemate`: its rules, skills
+and how-tos) without asking. Anything else outside `/config` still asks first, and
+writing is unchanged.
 
 ## Configuration
 
@@ -18,6 +37,7 @@ editor's title bar.
 | ------ | ------- |
 | `provider` | `go` for OpenCode Go, `zen` for OpenCode Zen. |
 | `api_key` | Your key from [opencode.ai](https://opencode.ai). Optional with Zen, whose free models need none. |
+| `model` | Optional. A model as `provider/model`, for example `opencode-go/deepseek-v4.1-flash`. Empty means the provider's default: `opencode-go/deepseek-v4.1-flash` with Go, a free model with Zen. |
 | `review_notify` | Optional. The notify service of your phone for the daily update review (for example `notify.mobile_app_my_phone`). |
 | `review_time` | When the daily update review is sent, `HH:MM` in Home Assistant's time zone. Default `09:00`. |
 
@@ -133,10 +153,9 @@ network's gateway, `172.30.32.1`) and refuses every other add-on on that network
   add-ons cannot reach it.
 - OpenCode's own server listens on the add-on's loopback and nowhere else.
 - The voice endpoint: Home Assistant Core only, as above.
-- After installing, the panel is not in the sidebar yet: Home Assistant leaves
-  that to you. Switch on **Show in sidebar** on the add-on's Info page, or open
-  **Open web UI** there. The page is also at `/app/<slug>` (for the edge add-on,
-  `/app/<repository id>_housemate_edge`).
+- The panel is shown in the sidebar on the first start. If you hide it, open
+  the add-on's page instead: **Open web UI**, or `/app/<slug>` (for the edge
+  add-on, `/app/<repository id>_housemate_edge`).
 
 ## Updates
 

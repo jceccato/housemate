@@ -1,0 +1,36 @@
+#!/bin/bash
+# housemate-agent: OpenCode for the panel's editor tab, started at most once.
+#
+#   housemate-agent              the newest chat (what the panel opens into)
+#   housemate-agent --new        a new chat, in its own tab
+#   housemate-agent --session ID the chat with that id
+#
+# OpenCode runs in a tmux session of its own (no bar, no keys of tmux's own): a closed browser tab leaves it
+# running, and opening the panel again attaches to the same one instead of
+# starting a second. The name of the tmux session says which chat it holds: the
+# newest chat when "the newest" is asked for, so a chat created since (a voice
+# job, the update review) is not hidden behind an older OpenCode left running.
+set -o nounset
+
+cd /config || exit 1
+
+case "${1:-}" in
+    --new) key="new-$(date +%s)-$$"; cmd=(opencode) ;;
+    --session)
+        id="${2:?housemate-agent --session needs a chat id}"
+        [[ "${id}" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Not a chat id: ${id}" >&2; exit 2; }
+        key="s-${id}"; cmd=(opencode --session "${id}") ;;
+    "")
+        newest=$(opencode session list --format json -n 1 2> /dev/null | jq -r '.[0].id // empty' 2> /dev/null)
+        # Only plain ids are used in a tmux session name.
+        [[ "${newest}" =~ ^[A-Za-z0-9_-]+$ ]] || newest="none"
+        key="s-${newest}"; cmd=(opencode --continue) ;;
+    *) echo "usage: housemate-agent [--new | --session ID]" >&2; exit 2 ;;
+esac
+
+# When OpenCode quits, the tab stays a shell. The TMUX variable is cleared so
+# that a tab opened from inside another session still starts its own.
+unset TMUX
+exec tmux -f /usr/share/housemate/tmux.conf -L housemate \
+    new-session -A -s "${key}" -c /config \
+    bash -c '"$@"; exec bash -l' housemate-agent "${cmd[@]}"

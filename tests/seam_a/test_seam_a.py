@@ -262,10 +262,10 @@ class Manifest(unittest.TestCase):
         self.assertNotIn("ports", c)
         self.assertNotIn("host_network", c)
 
-    def test_the_docs_say_how_to_show_the_panel(self):
-        # config.yaml cannot put the panel in the sidebar (ingress_panel is the
-        # user's own switch, ignored there: checked on a cold install), so the
-        # docs must say how.
+    def test_the_docs_say_how_to_hide_the_panel(self):
+        # config.yaml cannot put the panel in the sidebar (ingress_panel is ignored
+        # there: checked on a cold install); the add-on does it itself on its
+        # first start (test_panel.py), and the docs say how to hide it.
         self.assertNotIn("ingress_panel", self.config)
         self.assertIn("Show in sidebar", (ADDON_DIR / "DOCS.md").read_text())
 
