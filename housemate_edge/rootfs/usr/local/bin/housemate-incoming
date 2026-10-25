@@ -64,7 +64,10 @@ cmd_stage() {
         echo "Kit versions must be whole numbers (manifest '${old}', image '${new}')." >&2
         return 1
     fi
-    if ((new <= old)); then
+    # An older image (a rollback) stages nothing. The same version is staged too,
+    # but only if the kit really differs from the base: a kit file changed
+    # without a version bump (or generated at the image build) must not be missed.
+    if ((new < old)); then
         return 0
     fi
 
@@ -122,6 +125,11 @@ cmd_stage() {
             (cd "${base_dir}" 2> /dev/null && find . -type f -print0 || true)
         } | sed -z 's|^\./||' | sort -zu
     )
+
+    if ((new == old)) && [[ ! -s "${rows}" ]]; then
+        rm -rf "${work:?}"
+        return 0
+    fi
 
     release_notes "${old}" "${new}" > "${work}/RELEASE-NOTES.md"
     cat > "${work}/README.md" << 'README'

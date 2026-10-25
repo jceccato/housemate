@@ -221,6 +221,13 @@ class SeamLevel(unittest.TestCase):
         f.run_seed(f.old_kit, "version-old")
         self.assertFalse(f.staged.exists())
 
+    def test_a_kit_changed_without_a_version_bump_is_still_staged(self):
+        f = Fixture(self, OLD, {**OLD, "docs/sheet.md": "sheet v1b\n", ".opencode/skills/x/SKILL.md": "gen\n"}, new_version="1")
+        f.start_new_image()
+        self.assertEqual(f.entry("docs/sheet.md")["outcome"], "apply")
+        self.assertEqual(f.entry(".opencode/skills/x/SKILL.md")["outcome"], "apply")
+        self.assertIn("No release notes", (f.staged / "RELEASE-NOTES.md").read_text())
+
     def test_an_older_kit_than_the_manifest_stages_nothing(self):
         f = Fixture(self, OLD, {**OLD, "docs/sheet.md": "x\n"}, new_version="0")
         f.start_new_image()
