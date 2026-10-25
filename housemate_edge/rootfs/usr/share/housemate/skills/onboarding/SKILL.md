@@ -20,7 +20,8 @@ desktop. Short messages, plain words, no jargon without a half-sentence of why.
   step is not a failure: record it and move on. Offer "skip" every time; do not
   argue.
 - **Record each step as it settles**, so a re-run knows where things stand:
-  `housemate-onboarding step <name> done|skipped "<a few words>"`. The names, in
+  `housemate-onboarding step <name> done|skipped "<a few words>"` (the words are
+  saved and shown: never a secret, a token or an address with a password in it). The names, in
   order: `provider`, `git`, `scan`, `phone`, `remote`, `voice`, `automation`.
   `housemate-onboarding status` shows them.
 - **Never print a secret**: not the API key, not a token, nothing from
@@ -127,8 +128,9 @@ housemate-onboarding phones
 
 Tell the daily update review which phone to use. This writes the add-on's
 `review_notify` option through the Supervisor (the key and other options are kept,
-nothing is printed); the review needs no restart of Home Assistant, and says at
-9 in the morning what is waiting:
+nothing is printed); the review needs no restart of Home Assistant, and sends one message a day
+(at 09:00 unless the user has changed the review time in the Configuration tab)
+saying what is waiting:
 
 ```bash
 housemate-onboarding review-notify notify.mobile_app_<name>
@@ -198,6 +200,8 @@ housemate-voice-install
   asking. Show them the entry in `/config/housemate_rest_command.yaml` and offer
   to add it to their existing `rest_command:` (a merge by hand, with their yes),
   keeping everything of theirs. Then continue.
+- Exit 3 and they would rather not merge: mark `voice` skipped with that reason
+  and go to step 7; do not create the automation or restart.
 - Any other failure: say plainly what failed, mark `voice` skipped with the
   reason, and carry on.
 

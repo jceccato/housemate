@@ -212,7 +212,9 @@ def set_review_notify(service):
     """Through the Supervisor's options API. The options are read and written back whole, never printed."""
     import urllib.request
     base = os.environ.get("HOUSEMATE_SUPERVISOR_URL", "http://supervisor")
-    auth = {"Authorization": "Bearer " + os.environ.get("SUPERVISOR_TOKEN", "")}
+    if not os.environ.get("SUPERVISOR_TOKEN"):
+        raise SystemExit("SUPERVISOR_TOKEN is not set: run this inside the Housemate add-on")
+    auth = {"Authorization": "Bearer " + os.environ["SUPERVISOR_TOKEN"]}
     with urllib.request.urlopen(urllib.request.Request(base + "/addons/self/options/config", headers=auth), timeout=15) as r:
         options = json.load(r)["data"]
     body = json.dumps({"options": with_review_notify(options, service)}).encode()
@@ -220,6 +222,24 @@ def set_review_notify(service):
                                  headers={**auth, "Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=15) as r:
         r.read()
+    # The Supervisor rewrites /data/options.json only when the add-on starts, and the daily
+    # review reads that file: put the same value there now so it takes effect without a restart.
+    write_live_option("review_notify", service)
+
+
+def write_live_option(key, value):
+    path = os.environ.get("HOUSEMATE_OPTIONS", "/data/options.json")
+    try:
+        with open(path) as f:
+            options = json.load(f)
+    except (OSError, ValueError):
+        return
+    options[key] = value
+    tmp = path + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(options, f)
+    os.replace(tmp, path)
 
 
 def phones():
