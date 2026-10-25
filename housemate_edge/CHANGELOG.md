@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.13
+
+- Update dependency coder/code-server to v4.143.1 (#13)
+
 ## 0.1.12
 
 - Staged: pin code-server 4.141.1 so Renovate has a real minor bump to propose (#12)
