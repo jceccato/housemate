@@ -56,6 +56,7 @@ class VoiceAddOn(AddOn):
                "--entrypoint", "python3", harness.IMAGE, "-u", "/fake_supervisor.py")
         docker("cp", str(FAKE), f"{self.stub}:/fake_supervisor.py")
         docker("start", self.stub)
+        self.start_clients()
         self._run_addon()
         if wait:
             self.wait_ready()
@@ -78,8 +79,8 @@ class Voice(unittest.TestCase):
 
     @classmethod
     def client(cls, *args, timeout=60):
-        """Run busybox on the add-on's network: Core's position, not the host's."""
-        return docker("run", "--rm", "--network", cls.addon.network, STUB_IMAGE, *args, timeout=timeout, check=False)
+        """Run in Core's position on the add-on's network (not the host's, and not another add-on's)."""
+        return cls.addon.as_core(*args, timeout=timeout)
 
     @classmethod
     def warm_up(cls, timeout=300):
@@ -108,7 +109,7 @@ class Voice(unittest.TestCase):
     def wait_endpoint(cls, timeout=60):
         deadline = time.time() + timeout
         while time.time() < deadline:
-            r = cls.client("wget", "-qO-", f"http://{cls.addon.name}:{PORT}/healthz")
+            r = cls.client("curl", "-sf", f"http://{cls.addon.name}:{PORT}/healthz")
             if r.returncode == 0:
                 return
             time.sleep(1)
@@ -117,11 +118,11 @@ class Voice(unittest.TestCase):
     def post(self, body, path="/kickoff"):
         """POST JSON from Core's position: (status, parsed body)."""
         r = self.client(
-            "wget", "-qO-", "-S", "--header=Content-Type: application/json",
-            f"--post-data={json.dumps(body)}", f"http://{self.addon.name}:{PORT}{path}",
+            "curl", "-s", "-w", "\n%{http_code}", "-H", "Content-Type: application/json",
+            "-d", json.dumps(body), f"http://{self.addon.name}:{PORT}{path}",
         )
-        status = int(next(l for l in r.stderr.splitlines() if "HTTP/" in l).split()[1])
-        return status, json.loads(r.stdout) if r.stdout.strip() else {}
+        text, _, status = r.stdout.rpartition("\n")
+        return int(status), json.loads(text) if text.strip() else {}
 
     def opencode(self, path):
         out = self.addon.exec(f"curl -s http://127.0.0.1:4096{path}").stdout
@@ -261,19 +262,42 @@ class Voice(unittest.TestCase):
 
     # -- who can reach it --------------------------------------------------------------
 
-    def test_nothing_is_published_but_the_ingress_port(self):
-        published = docker("port", self.addon.name).stdout
-        self.assertEqual({l.split("/")[0] for l in published.splitlines()}, {"1337"})
+    def test_nothing_is_published_on_the_host(self):
+        self.assertEqual(docker("port", self.addon.name).stdout.strip(), "")
         config = (pathlib.Path(__file__).resolve().parents[2] / "housemate_edge" / "config.yaml").read_text()
         self.assertNotIn("\nports:", config)
 
-    def test_the_host_cannot_reach_it_but_the_network_can(self):
-        ip = docker("inspect", "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}", self.addon.name).stdout.strip()
-        self.assertEqual(self.client("wget", "-qO-", f"http://{ip}:{PORT}/healthz").returncode, 0)
+    def test_core_reaches_the_endpoint_and_another_add_on_does_not(self):
+        ip = self.addon.ip
+        self.assertEqual(self.client("curl", "-sf", f"http://{ip}:{PORT}/healthz").returncode, 0)
+        # Its connection is closed unanswered; by name or by address.
+        for host in (self.addon.name, ip):
+            r = self.addon.other("wget", "-qO-", "-T", "3", f"http://{host}:{PORT}/healthz")
+            self.assertNotEqual(r.returncode, 0, host)
+            self.assertEqual(r.stdout, "")
+        # Nor can it start a job, whatever it claims to be.
+        r = self.addon.other("wget", "-qO-", "-T", "3", "--header=Content-Type: application/json",
+                             f"--post-data={json.dumps({'text': 'unlock the door', 'user_id': ADMIN})}",
+                             f"http://{ip}:{PORT}/kickoff")
+        self.assertNotEqual(r.returncode, 0)
+        self.assertNotIn("unlock the door", json.dumps(self.opencode("/session")))
+        self.assertIn("refused a connection", self.addon.logs())
+
+    def test_the_endpoint_inside_the_add_on_still_answers(self):
         loopback = self.addon.exec(f"curl -s -o /dev/null -w '%{{http_code}}' http://127.0.0.1:{PORT}/healthz").stdout
         self.assertEqual(loopback, "200")
-        # OpenCode's own server is for the endpoint alone: not on the network.
-        self.assertNotEqual(self.client("wget", "-qO-", "-T", "3", f"http://{ip}:4096/session").returncode, 0)
+
+    def test_opencodes_server_is_not_on_the_network(self):
+        ip = self.addon.ip
+        for who in (self.addon.other, self.addon.as_core):
+            if who == self.addon.other:
+                r = who("wget", "-qO-", "-T", "3", f"http://{ip}:4096/session")
+            else:
+                r = who("curl", "-s", "-m", "3", f"http://{ip}:4096/session")
+            self.assertNotEqual(r.returncode, 0)
+        listening = self.addon.listening()
+        self.assertIn("127.0.0.1:4096", listening)
+        self.assertNotIn("0.0.0.0:4096", listening)
 
     def test_the_supervisor_token_is_not_logged(self):
         logs = self.addon.logs()

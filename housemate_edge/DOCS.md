@@ -103,9 +103,22 @@ and give it your phone's notify service (for example `notify.mobile_app_my_phone
 
 The blueprint's action talks to a small endpoint inside the add-on, on port 8765
 of the add-on's hostname, reachable from Home Assistant on its internal network.
-The port is not published on your network. The endpoint takes no password:
-anything on Home Assistant's internal network that can reach it can start a job
-as a non-administrator's request or, naming an administrator's id, as theirs.
+The port is not published on your network. The endpoint takes no password and
+believes the administrator's id in the request, so it answers Home Assistant
+alone: it accepts connections only from Home Assistant Core (the Supervisor
+network's gateway, `172.30.32.1`) and refuses every other add-on on that network.
+
+## Who can reach the add-on
+
+- The panel: code-server listens only inside the add-on; nginx in front of it
+  accepts only the Supervisor's Ingress proxy (`172.30.32.2`), which has already
+  checked that you are signed in to Home Assistant as an administrator. Other
+  add-ons cannot reach it.
+- OpenCode's own server listens on the add-on's loopback and nowhere else.
+- The voice endpoint: Home Assistant Core only, as above.
+- The panel is in the sidebar from the first install. If your sidebar hides it,
+  switch on **Show in sidebar** on the add-on's Info page, or open
+  `/app/<slug>` (for the edge add-on, `/app/<repository id>_housemate_edge`).
 
 ## Updates
 

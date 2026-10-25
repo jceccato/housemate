@@ -1,0 +1,27 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Housemate: the front door of the panel. code-server listens on the loopback of
+# this container alone (127.0.0.1:1338) and has no sign-in of its own; nginx
+# listens on the Ingress port (1337) and lets in only the Supervisor's Ingress
+# proxy (172.30.32.2), which has already checked that the person is a Home
+# Assistant administrator. Anything else on the Supervisor's network is refused.
+# The pattern is Studio Code Server's (see THIRD_PARTY_NOTICES.md).
+#
+# HOUSEMATE_INGRESS_ALLOW replaces the Ingress proxy's address. It exists for the
+# tests, which have no Supervisor; Home Assistant never sets it.
+# ==============================================================================
+readonly allow="${HOUSEMATE_INGRESS_ALLOW:-172.30.32.2}"
+if [[ ! "${allow}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+    bashio::exit.nok "HOUSEMATE_INGRESS_ALLOW is not an IPv4 address"
+fi
+
+# The loopback is let in for the container's own health check.
+cat > /run/housemate-nginx-allow.conf <<CONF
+allow ${allow};
+allow 127.0.0.1;
+deny all;
+CONF
+
+bashio::log.info "Starting nginx on the Ingress port, for ${allow} only..."
+exec nginx -g "daemon off;"

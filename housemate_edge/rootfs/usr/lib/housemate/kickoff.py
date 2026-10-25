@@ -49,6 +49,12 @@ LISTEN = ("0.0.0.0", int(os.environ.get("HOUSEMATE_KICKOFF_PORT", "8765")))
 # session's id is in the notification either way.
 APP_PREFIX = os.environ.get("HOUSEMATE_APP_PREFIX", "/app")
 CHAT_PATH = os.environ.get("HOUSEMATE_CHAT_PATH", "")
+# The endpoint takes no credential and believes the user_id in the body, so it
+# answers only Home Assistant Core, which reaches add-ons from the Supervisor
+# network's gateway, 172.30.32.1 (and this container's own loopback). Any other
+# caller's connection is closed unanswered. HOUSEMATE_KICKOFF_ALLOW replaces the
+# Core address, for the tests, which have no Supervisor; Home Assistant never sets it.
+ALLOWED = {os.environ.get("HOUSEMATE_KICKOFF_ALLOW", "172.30.32.1"), "127.0.0.1"}
 STATE_FILE = os.environ.get("HOUSEMATE_KICKOFF_STATE", "/data/kickoff/sessions.json")
 MAX_TEXT = 2000
 MAX_TRACKED = 200
@@ -378,11 +384,19 @@ class Handler(BaseHTTPRequestHandler):
         self.reply(202, {"session_id": sid, "waiting_for_admin": not is_admin, "url": panel_url()})
 
 
+class Server(ThreadingHTTPServer):
+    def verify_request(self, request, client_address):
+        if client_address[0] in ALLOWED:
+            return True
+        log(f"refused a connection from {client_address[0]}")
+        return False
+
+
 def main():
     load_state()
     threading.Thread(target=watch_events, daemon=True).start()
     log(f"listening on {LISTEN[0]}:{LISTEN[1]}")
-    ThreadingHTTPServer(LISTEN, Handler).serve_forever()
+    Server(LISTEN, Handler).serve_forever()
 
 
 if __name__ == "__main__":
