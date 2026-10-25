@@ -8,6 +8,11 @@ The image's own agent rules, shipped inside the add-on as OpenCode's global
 does not edit them, and they never arrive as **incoming**. _Avoid_: "system
 prompt", "default rules".
 
+**Built-in skill**
+A skill shipped in the image (today `incoming-review`) and replaced on every
+start, like the **built-in rules**, so it works whatever the user has done to
+their own kit. Not part of the **kit**.
+
 **Edge**
 The add-on "Housemate (edge)" (slug `housemate_edge`): the newest build,
 published on every merge to `main`, for testers and the maintainer's own Home

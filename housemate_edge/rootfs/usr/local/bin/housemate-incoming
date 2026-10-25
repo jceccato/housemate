@@ -55,6 +55,8 @@ release_notes() { # from to
 
 cmd_stage() {
     [[ -e "${manifest}" ]] || { echo "No manifest yet; nothing to stage."; return 0; }
+    # A missing kit would read as "every file removed": refuse rather than stage that.
+    [[ -d "${kit}" ]] || { echo "No kit directory at ${kit}; not staging." >&2; return 1; }
     local old new
     old=$(jq -r '.kit_version' "${manifest}")
     new=$(new_version)
@@ -173,6 +175,9 @@ cmd_apply_untouched() {
     [[ -f "${incoming}/manifest.json" ]] || { echo "Nothing incoming." >&2; return 1; }
     local rel change expected cur
     while IFS=$'\t' read -r rel change expected; do
+        case "/${rel}/" in
+            *"/../"* | //*) echo "skipped ${rel}: not a path inside /config"; continue ;;
+        esac
         cur=""
         [[ -f "${dest}/${rel}" ]] && cur=$(hash_of "${dest}/${rel}")
         if [[ "${cur}" != "${expected}" ]]; then
