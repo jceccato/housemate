@@ -253,8 +253,34 @@ class GitInConfig(unittest.TestCase):
         a.exec("/config/scripts/git-init.sh")
         tracked = a.exec("cd /config && git ls-files").stdout.split("\n")
         self.assertNotIn("secrets.yaml", tracked)
-        self.assertIn("configuration.yaml", tracked)
         self.assertIn("*.bak", a.exec("cat /config/.gitignore").stdout)
+
+    def test_on_a_repository_with_history_only_the_policy_is_committed(self):
+        """The user's own uncommitted and staged work is never swept into a commit."""
+        a = AddOn(OPTIONS, {"configuration.yaml": "x: 1\n", "mine.yaml": "v: 1\n", "secrets.yaml": SECRET_VALUE + "\n"})
+        self.addCleanup(a.stop)
+        a.start()
+        git = "git -c user.name=t -c user.email=t@t"
+        a.exec(f"chown -R root:root /config && cd /config && git init -q && {git} add mine.yaml secrets.yaml && {git} commit -qm old")
+        a.exec("cd /config && echo 'v: 2' > mine.yaml && echo 'staged: 1' > staged.yaml && git add staged.yaml && echo 'new: 1' > fresh.yaml")
+        before = a.exec("cd /config && git rev-parse HEAD").stdout
+        a.exec("/config/scripts/git-init.sh")
+        commit = a.exec("cd /config && git show --stat --format=%s HEAD").stdout
+        self.assertNotEqual(a.exec("cd /config && git rev-parse HEAD").stdout, before)
+        self.assertIn("ignore policy", commit)
+        self.assertIn("secrets.yaml", commit)
+        self.assertIn(".gitignore", commit)
+        for mine in ("mine.yaml", "staged.yaml", "fresh.yaml", "configuration.yaml"):
+            self.assertNotIn(mine, commit)
+        status = a.exec("cd /config && git status --porcelain").stdout
+        self.assertIn("M mine.yaml", status.replace(" M", "M"))
+        self.assertIn("A  staged.yaml", status)
+        self.assertIn("?? fresh.yaml", status)
+        self.assertEqual(a.exec("cd /config && cat mine.yaml").stdout, "v: 2\n")
+        # And a second run commits nothing more.
+        head = a.exec("cd /config && git rev-parse HEAD").stdout
+        a.exec("/config/scripts/git-init.sh")
+        self.assertEqual(a.exec("cd /config && git rev-parse HEAD").stdout, head)
 
     def test_running_it_again_changes_nothing(self):
         head = self.addon.exec("cd /config && git rev-parse HEAD && cat .gitignore | sha256sum").stdout
