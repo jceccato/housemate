@@ -78,6 +78,16 @@ def is_prerelease(version):
     return bool(re.fullmatch(r"(?i)v?\d+(\.\d+)*[.-]?(a|b|rc|alpha|beta|dev|pr)[.-]?\d*", str(version)))
 
 
+def addon_slug_of(reg_entry, attrs):
+    """An add-on's slug. The registry's unique id is `<slug>_version_latest` (an add-on from a
+    custom repository has no picture); the picture's path is the fallback."""
+    m = re.fullmatch(r"(.+)_version_latest", reg_entry.get("unique_id") or "")
+    if m and reg_entry.get("platform") == "hassio":
+        return m.group(1)
+    m = re.search(r"/addons/([^/]+)/", attrs.get("entity_picture") or "")
+    return m.group(1) if m else ""
+
+
 def pending_from(states, registry, own_slug):
     out = []
     for s in states:
@@ -86,8 +96,7 @@ def pending_from(states, registry, own_slug):
             continue
         a = s.get("attributes", {})
         platform = (registry.get(eid) or {}).get("platform", "")
-        m = re.search(r"/addons/([^/]+)/", a.get("entity_picture") or "")
-        slug = m.group(1) if m else ""
+        slug = addon_slug_of(registry.get(eid) or {}, a)
         kind = classify(eid, platform, own_slug, slug)
         latest = str(a.get("latest_version"))
         out.append({

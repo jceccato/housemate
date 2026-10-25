@@ -24,8 +24,9 @@ def update(entity_id, installed, latest, slug=None, platform="hassio", on=True):
         "entity_id": entity_id, "state": "on" if on else "off",
         "attributes": {"installed_version": installed, "latest_version": latest, "title": entity_id.split(".")[1],
                        "release_url": "https://github.com/example/thing/releases/tag/" + latest,
-                       "entity_picture": f"/api/hassio/addons/{slug}/icon" if slug else None},
-    }, {"entity_id": entity_id, "platform": platform})
+                       "entity_picture": None},
+    }, {"entity_id": entity_id, "platform": platform,
+        "unique_id": f"{slug}_version_latest" if slug else entity_id})
 
 
 HOUSE = [
