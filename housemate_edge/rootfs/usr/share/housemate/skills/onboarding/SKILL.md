@@ -14,7 +14,8 @@ desktop. Short messages, plain words, no jargon without a half-sentence of why.
 
 - **One thing at a time.** Say which step this is ("Step 3 of 7: your house"),
   what it is for in one sentence, then do it or ask. Use the question tool for
-  choices; give the option you recommend first.
+  choices when you have it, and plain words when you do not; give the option you
+  recommend first. After a question, stop and wait for the answer.
 - **Every step can be skipped**, and the user may stop at any point. A skipped
   step is not a failure: record it and move on. Offer "skip" every time; do not
   argue.
@@ -203,10 +204,21 @@ automation:
 
 Use the service you kept in step 4, or an empty string if there was none. Then
 `scripts/check-config.sh`; if the check fails, fix it before going further. With
-the check passing, restart Home Assistant **once**:
-`curl -fsS -X POST -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/restart`.
-Wait for it to answer again (poll `http://supervisor/core/api/` until it replies,
-up to three minutes), then confirm the action exists:
+the check passing, restart Home Assistant **once**, and wait for it properly: it
+keeps answering for a few seconds after the request, so wait until it has gone
+away and come back.
+
+```bash
+auth="Authorization: Bearer $SUPERVISOR_TOKEN"
+curl -fsS -X POST -H "$auth" http://supervisor/core/restart > /dev/null
+sleep 20
+for i in $(seq 1 60); do
+  curl -fsS -m 5 -H "$auth" http://supervisor/core/api/ > /dev/null 2>&1 && { echo back; break; }
+  sleep 5
+done
+```
+
+Then confirm the action exists:
 `curl -fsS -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/api/services | jq -e '.[] | select(.domain=="rest_command") | .services.housemate_kickoff'`.
 Commit the files (`housemate_rest_command.yaml`, the blueprint, `configuration.yaml`,
 the package) with a why.
@@ -222,13 +234,24 @@ This is the point of it all. Ask what small thing they would like their house to
 do. If they have nothing in mind, offer two or three from their own cheat sheet
 in their words ("turn the lounge lamp on at sunset?", "tell you when the washing
 machine finishes?") and let them pick. Then build it the Housemate way, with the
-`orchestrator` skill: load it and follow it, so they meet the sizing from the
+`orchestrator` skill: load it with the skill tool before you start, and follow it, so they meet the sizing from the
 start (a plainly small request is just done, with no question). Keep the example
 small enough to finish in this conversation.
 
-The step is done only when the automation exists, `scripts/check-config.sh` is
-valid, it is reloaded and shown working (trigger it, or explain exactly when it
-will fire), and it is **committed** with a message that says why. Show them the
+Build it the way step 6 did: **its own file**, `packages/<topic>.yaml`, holding a
+top-level `automation:` list with the one automation in it. Packages are already
+switched on in `configuration.yaml`; leave that file and every other file as
+they are. Never merge it into another package, never delete or rewrite
+`packages/housemate_voice.yaml`, and never replace the `packages:` line. If
+packages were not switched on (step 6 was skipped), add the one line AGENTS.md
+describes and nothing else.
+
+The step is done only when `scripts/check-config.sh` is valid, you have reloaded
+(`POST http://supervisor/core/api/services/automation/reload`) and seen the new
+automation in the API (`GET .../api/states/automation.<its id>` answers, and the
+voice kick-off is still listed if step 6 ran), you have shown it working (trigger
+it with `automation.trigger` if it is safe to, otherwise say exactly when it will
+fire), and it is **committed** with a message that says why. Show them the
 commit (`git -C /config log --oneline -3`) and tell them how to undo it: "ask me
 to undo the last change".
 
