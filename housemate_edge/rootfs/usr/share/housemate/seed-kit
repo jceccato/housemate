@@ -29,6 +29,10 @@ while IFS= read -r -d '' file; do
     rel="${file#"${kit}"/}"
     hash=$(sha256sum "${file}" | cut -d' ' -f1)
     target="${dest}/${rel}"
+    # The base of every kit file, shipped or skipped: the text a later
+    # three-way compare needs, which the next image will no longer carry.
+    mkdir -p "$(dirname "${state_dir}/base/${rel}")"
+    cp -p "${file}" "${state_dir}/base/${rel}"
     if [[ -e "${target}" ]]; then
         # Identical to the kit's file: ours from an interrupted first start.
         if [[ -f "${target}" ]] && [[ $(sha256sum "${target}" | cut -d' ' -f1) == "${hash}" ]]; then
@@ -39,7 +43,9 @@ while IFS= read -r -d '' file; do
         continue
     fi
     mkdir -p "$(dirname "${target}")"
-    cp -p "${file}" "${target}"
+    # Copy then rename, so a crash never leaves a half-written file behind.
+    cp -p "${file}" "${target}.housemate-new"
+    mv "${target}.housemate-new" "${target}"
     printf '%s\t%s\n' "${rel}" "${hash}" >> "${shipped}"
 done < <(find "${kit}" -type f -print0 | sort -z)
 

@@ -5,15 +5,24 @@ set -o errexit -o nounset -o pipefail
 
 cd "${1:-/config}"
 
-if [[ ! -f .gitignore ]]; then
-    cat > .gitignore <<'EOF'
-# Housemate's ignore policy. Secrets, credentials and bulk data stay out of git.
+# The policy is written to .gitignore, or appended to one that is already there
+# (a repository from another tool), once: the marker line says it is in.
+if ! grep -qxF '# Housemate ignore policy' .gitignore 2>/dev/null; then
+    cat >> .gitignore <<'EOF'
+# Housemate ignore policy
+# Secrets, credentials and bulk data stay out of git.
 
 # Secrets
 secrets.yaml
 *.pem
 *.key
 ssl/
+.ssh/
+ip_bans.yaml
+.esphome/
+zigbee2mqtt/
+*.token
+*.pickle
 
 # Databases, logs
 *.db
@@ -63,6 +72,8 @@ fi
 git config user.name >/dev/null || git config user.name "Housemate"
 git config user.email >/dev/null || git config user.email "housemate@localhost"
 
+# Stop tracking anything the policy ignores that an earlier repository tracked.
+git ls-files -z --cached --ignored --exclude-standard | xargs -0 -r git rm --cached --quiet --
 git add -A
 if ! git diff --cached --quiet; then
     git commit --quiet -m "Start tracking /config: the configuration as it was"

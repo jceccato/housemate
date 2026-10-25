@@ -72,7 +72,7 @@ def sha(path):
 def snapshot(addon):
     """Every file under /config: path, content hash, mtime. Git's own are left out."""
     out = addon.exec(
-        "cd /config && find . -path ./.git -prune -o -type f -printf '%p %T@ ' -exec sha256sum {} \; | sort"
+        r"cd /config && find . -path ./.git -prune -o -type f -printf '%p %T@ ' -exec sha256sum {} \; | sort"
     ).stdout
     return out
 
@@ -117,6 +117,11 @@ class FirstStart(unittest.TestCase):
         self.assertEqual(self.manifest["kit_version"], (SHARE / "kit-version").read_text().strip())
         self.assertEqual(self.manifest["files"], {rel: sha(KIT / rel) for rel in KIT_FILES})
         self.assertEqual(self.manifest["skipped_existing"], [])
+
+    def test_the_shipped_text_is_kept_as_the_base_for_a_later_compare(self):
+        for rel in KIT_FILES:
+            r = self.addon.exec(f"sha256sum /config/.housemate/base/{rel}")
+            self.assertEqual(r.stdout.split()[0], self.manifest["files"][rel], rel)
 
     def test_what_the_user_already_had_is_untouched(self):
         self.assertEqual(self.addon.exec("cat /config/configuration.yaml").stdout, "homeassistant:\n  name: Fixture\n")
@@ -217,6 +222,18 @@ class GitInConfig(unittest.TestCase):
         log = self.addon.exec("cd /config && git log --format=%s").stdout.strip().splitlines()
         self.assertTrue(log[-1].startswith("Start tracking /config"))
         self.assertEqual(self.addon.exec("cd /config && git status --porcelain").stdout, "")
+
+    def test_an_existing_gitignore_and_tracked_secrets_are_dealt_with(self):
+        a = AddOn(OPTIONS, {"configuration.yaml": "x: 1\n", ".gitignore": "*.bak\n", "secrets.yaml": SECRET_VALUE + "\n"})
+        self.addCleanup(a.stop)
+        a.start()
+        a.exec("chown -R root:root /config && cd /config && git init -q && git -c user.name=t -c user.email=t@t add secrets.yaml && "
+               "git -c user.name=t -c user.email=t@t commit -qm old")
+        a.exec("/config/scripts/git-init.sh")
+        tracked = a.exec("cd /config && git ls-files").stdout.split("\n")
+        self.assertNotIn("secrets.yaml", tracked)
+        self.assertIn("configuration.yaml", tracked)
+        self.assertIn("*.bak", a.exec("cat /config/.gitignore").stdout)
 
     def test_running_it_again_changes_nothing(self):
         head = self.addon.exec("cd /config && git rev-parse HEAD && cat .gitignore | sha256sum").stdout
