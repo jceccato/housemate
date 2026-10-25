@@ -45,6 +45,25 @@ update can tell what you changed. If you delete `/config/.housemate/`, the next
 start seeds again: files you have are never overwritten, but kit files you had
 deleted come back.
 
+### Skills and commands
+
+The kit also puts skills and commands in `/config/.opencode/`. **Skills** are
+ones the agent loads when the work calls for them: `orchestrator`, `tdd`,
+`diagnosing-bugs`, `code-review`, `home-assistant` and a few more. **Commands**
+are steps only you start, by typing them in OpenCode's chat: `/grill` (the agent
+interviews you about a plan), `/to-spec` (writes it up), `/to-tickets` (cuts it
+into tickets), `/triage` and `/setup-matt-pocock-skills` (for a GitHub Issues
+tracker). The agent never starts one for you.
+
+**Grill or yolo.** Ask for something and the agent judges whether it is a quick
+one-off or a bigger job. A small thing it just does. For a bigger one it asks
+"grill it, or yolo?". Yolo: it does the work and tells you. Grill: it tells you
+to type `/grill`, and once you have the spec and tickets (`/to-spec`,
+`/to-tickets`, kept as markdown in `/config/tracker/`) it works them one at a
+time, stopping whenever a step is yours to take. Afterwards it reviews its own
+work and updates its notes. Matt Pocock's skills are MIT licensed; the notice
+is in `THIRD_PARTY_NOTICES.md`.
+
 ### When the kit changes: incoming
 
 A newer Housemate may carry a better kit. It never overwrites your files: on the
