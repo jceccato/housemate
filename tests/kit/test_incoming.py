@@ -263,6 +263,27 @@ class SeamLevel(unittest.TestCase):
         self.assertEqual(status["pending"], False)
 
 
+class Safety(unittest.TestCase):
+    def test_a_missing_kit_directory_stages_nothing_rather_than_staging_every_file_as_removed(self):
+        f = Fixture(self, OLD, OLD)
+        subprocess.run(["rm", "-rf", str(f.new_kit)], check=True)
+        r = subprocess.run([str(INCOMING), "stage"], env=f.env(f.new_kit, "version-new"), capture_output=True, text=True)
+        self.assertNotEqual(r.returncode, 0)
+        self.assertFalse(f.staged.exists())
+
+    def test_apply_ignores_a_staged_path_that_leaves_config(self):
+        f = Fixture(self, OLD, {**OLD, "docs/sheet.md": "v2\n"})
+        f.start_new_image()
+        outside = f.tmp / "outside.txt"
+        outside.write_text("keep\n")
+        m = f.manifest()
+        m["files"]["../outside.txt"] = {"change": "removed", "user": "untouched", "outcome": "apply",
+                                        "base_sha256": "", "new_sha256": "", "user_sha256": sha("keep\n")}
+        (f.staged / "manifest.json").write_text(json.dumps(m))
+        f.incoming("apply-untouched")
+        self.assertTrue(outside.exists())
+
+
 class ReleaseNotes(unittest.TestCase):
     def test_release_notes_travel_with_incoming_for_every_version_skipped_over(self):
         f = Fixture(self, OLD, {**OLD, "docs/sheet.md": "v3\n"}, new_version="3")
