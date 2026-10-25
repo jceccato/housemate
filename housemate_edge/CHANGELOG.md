@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.17
+
+- Review fixes: Core restart step, stable-channel and database-backup checks, honest delivery (#17)
+
 ## 0.1.16
 
 - Onboarding: build the first automation in its own package and verify it; wait out the restart
