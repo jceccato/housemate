@@ -7,6 +7,10 @@ name: Tests
 #   workflow_call  publish-edge.yml calls this same definition as its gate, so
 #                  the check on a pull request and the gate on a publish
 #                  cannot drift apart.
+#
+# The job names below are the checks that branch protection requires on main:
+#   "Seam A (amd64)", "Seam A (aarch64)", "Pipeline scripts".
+# Renaming a job renames the check; change the ruleset in the same breath.
 
 on:
   pull_request:
@@ -16,6 +20,18 @@ permissions:
   contents: read
 
 jobs:
+  pipeline:
+    # The release scripts' own tests: version choice, changelog, promotion.
+    name: Pipeline scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Run the pipeline tests
+        run: python3 -I -m unittest discover -s tests/pipeline -v
+
   seam-a:
     # Seam A: build the image, start it the way the Supervisor would (fixture
     # /config, /data and options; a stand-in Supervisor API), and assert what

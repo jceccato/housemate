@@ -1,7 +1,9 @@
 # Housemate (edge)
 
+<!-- edge-only -->
 The newest Housemate build, for testers. It may change or break between
 releases; the stable add-on, **Housemate**, is the one to rely on.
+<!-- /edge-only -->
 
 ## What it gives you
 

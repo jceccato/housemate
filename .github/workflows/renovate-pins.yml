@@ -1,0 +1,72 @@
+name: Renovate pins
+
+# Renovate changes OPENCODE_VERSION or CODE_SERVER_VERSION in the Dockerfile
+# but cannot change the SHA256 pins beside them, so the build would fail its
+# own check. On Renovate's pull requests this workflow recomputes the pins
+# from the real downloads and pushes them to the branch, which runs CI again
+# on the corrected head. Then, for any update that is not a major, it turns on
+# auto-merge (Renovate usually has; this is the belt to its braces).
+#
+# Needs the repository secret RELEASE_TOKEN: a push made with the workflow's
+# own token starts no CI, and the pull request would wait forever for checks.
+# The commit's author is on Renovate's gitIgnoredAuthors list, so Renovate does
+# not treat the branch as edited by a person.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+    paths:
+      - "housemate_edge/Dockerfile"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: renovate-pins-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pins:
+    name: Recompute pins
+    if: >-
+      github.event.pull_request.user.login == 'renovate[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+    steps:
+      - name: Need the token
+        run: |
+          [[ -n "${RELEASE_TOKEN}" ]] || { echo "::error::repository secret RELEASE_TOKEN is not set"; exit 1; }
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Recompute the checksums
+        run: python3 .github/scripts/pin_checksums.py housemate_edge/Dockerfile
+
+      - name: Push them to the branch
+        run: |
+          if git diff --quiet; then
+            echo "pins already match"
+            exit 0
+          fi
+          git config user.name "housemate-pipeline"
+          git config user.email "housemate-pipeline@users.noreply.github.com"
+          git add housemate_edge/Dockerfile
+          git commit -m "Update release checksums" \
+            -m "Recomputed from the downloads by .github/scripts/pin_checksums.py."
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+
+      - name: Auto-merge when CI passes, unless it is a major update
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          case ",${LABELS}," in
+            *,major,*) echo "major update: left for review"; exit 0 ;;
+          esac
+          gh pr merge "${PR}" --repo "${{ github.repository }}" --auto --squash

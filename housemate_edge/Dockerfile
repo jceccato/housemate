@@ -2,11 +2,14 @@
 # Built the way Home Assistant now builds apps: this file is the whole recipe,
 # the base is a multi-arch image, and CI supplies BUILD_ARCH (amd64|aarch64).
 #
-# To update OpenCode or code-server: change its version and both checksums
-# below (the release page lists them), bump `version` in config.yaml and add a
-# CHANGELOG.md entry. Neither updates itself at runtime.
+# To update OpenCode or code-server: Renovate changes the version, a workflow
+# recomputes the checksums (.github/scripts/pin_checksums.py), and the publish
+# workflow bumps the add-on's version and changelog on merge. By hand, run
+# pin_checksums.py after changing a version; do not edit `version` in
+# config.yaml. Neither updates itself at runtime. See docs/update-pipeline.md.
 
-# hassio-addons Debian base, by tag and index digest.
+# hassio-addons Debian base, by tag and index digest. Renovate reads this line
+# (renovate.json, customManagers); keep its shape.
 ARG BUILD_FROM=ghcr.io/hassio-addons/debian-base:9.5.1@sha256:4e891c053f1a0205218fe801d7f187b2c6dc01eb7f4ead83b3033a6f22cf2869
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
@@ -16,11 +19,13 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # OpenCode https://github.com/anomalyco/opencode/releases (MIT). The x64
 # *baseline* build, because the regular one needs AVX2 and a Home Assistant
 # guest may sit on a baseline virtual CPU.
+# renovate: datasource=github-releases depName=anomalyco/opencode extractVersion=^v(?<version>.+)$
 ARG OPENCODE_VERSION=1.19.4
 ARG OPENCODE_SHA256_AMD64=1697ef40558d378bd2f72efa8fafe1bed1f0e664f09247b9357556b95dbc7cbc
 ARG OPENCODE_SHA256_AARCH64=8568230ccd847dc93e95b9f6894379077d3e014a16b48040743573e77c23e85f
 
 # code-server https://github.com/coder/code-server/releases (MIT).
+# renovate: datasource=github-releases depName=coder/code-server extractVersion=^v(?<version>.+)$
 ARG CODE_SERVER_VERSION=4.143.1
 ARG CODE_SERVER_SHA256_AMD64=614877cf71005f14ea252bd2d9b1c12237cf7d73681ef150f0dff7f13849fdb5
 ARG CODE_SERVER_SHA256_AARCH64=51481a891754dc2585b86d007aec24ac675453fc5ef6cfa346c4462449277384

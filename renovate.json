@@ -1,0 +1,95 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigestsToSemver"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "dependencyDashboard": true,
+  "gitIgnoredAuthors": [
+    "housemate-pipeline@users.noreply.github.com"
+  ],
+  "platformAutomerge": true,
+  "customManagers": [
+    {
+      "description": "Versions pinned in a file under an annotation: '# renovate: datasource=X depName=Y [versioning=V] [extractVersion=R]' above 'KEY=value' or 'ARG KEY=value'. OpenCode and code-server are pinned this way in the Dockerfile.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^housemate_edge/.+$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?(?: extractVersion=(?<extractVersion>\\S+))?\\s+(?:ARG )?[A-Za-z0-9_]+[=:] ?\"?(?<currentValue>[^\\s\"]+)\"?"
+      ]
+    },
+    {
+      "description": "The base image, by tag and digest, in 'ARG BUILD_FROM=image:tag@sha256:...'.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
+      "matchStrings": [
+        "ARG BUILD_FROM=(?<depName>[^:@\\s]+):(?<currentValue>[^@\\s]+)@(?<currentDigest>sha256:[a-f0-9]{64})"
+      ],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "description": "Debian packages pinned in the Dockerfile as 'name=version' (trixie, with the security archive).",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/(^|/)Dockerfile$/"
+      ],
+      "matchStrings": [
+        "^\\s+(?<depName>[a-z0-9][a-z0-9.+-]*)=(?<currentValue>[^\\s\\\\]+)(?: \\\\)?$"
+      ],
+      "datasourceTemplate": "deb",
+      "versioningTemplate": "deb"
+    },
+    {
+      "description": "A vendored repository pinned by commit, such as the skills revision: '# renovate: git-refs <repo url> <branch>' above 'KEY=<40 hex>'.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^housemate_edge/.+$/"
+      ],
+      "matchStrings": [
+        "# renovate: git-refs (?<depName>\\S+) (?<currentValue>\\S+)\\s+(?:ARG )?[A-Za-z0-9_]+[=:] ?\"?(?<currentDigest>[a-f0-9]{40})\"?"
+      ],
+      "datasourceTemplate": "git-refs"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "Minor, patch and digest updates merge by themselves once CI passes.",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin",
+        "pinDigest"
+      ],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "A major update (OpenCode v2, a new base image major) is never merged without a person.",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false,
+      "addLabels": [
+        "major"
+      ]
+    },
+    {
+      "description": "Pinned Debian packages come from the security archive too.",
+      "matchDatasources": [
+        "deb"
+      ],
+      "registryUrls": [
+        "https://deb.debian.org/debian?suite=trixie&components=main&binaryArch=amd64",
+        "https://deb.debian.org/debian-security?suite=trixie-security&components=main&binaryArch=amd64"
+      ]
+    }
+  ]
+}

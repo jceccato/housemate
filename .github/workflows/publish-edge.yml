@@ -1,17 +1,32 @@
 name: Publish edge
 
-# Every merge to main that touches the edge add-on builds both architectures
-# and pushes the image tagged with the add-on's version. An image is pushed
-# before the version that names it, and a tag is never overwritten: if the
-# version's tag already exists, nothing is pushed (bump the version).
+# Every merge to main that touches the edge add-on publishes a build, in this
+# order, and the order is the point:
+#
+#   1. test        the same suite the pull request ran
+#   2. plan        pick the version: the next one with no image yet
+#   3. build       push both architectures' images, tagged with that version
+#   4. release     only now tag the commit and write the version into
+#                  housemate_edge/config.yaml with its CHANGELOG.md entry
+#
+# So the version the store shows never runs ahead of an image, and a tag is
+# never overwritten (the plan skips versions that have images; the push skips
+# a tag that exists). Nobody bumps the version or writes edge's changelog by
+# hand: that is this workflow's job. A version someone did bump by hand, with
+# no image yet, is published as it stands (and needs its own CHANGELOG entry).
+#
+# The bump commit says [skip ci], so it does not publish again. Publishes are
+# serialised, so two merges cannot choose the same version.
+#
+# Needs the repository secret RELEASE_TOKEN once main is protected: a
+# fine-grained token (contents: write) of a user allowed to bypass the ruleset.
+# Until then the workflow's own token pushes.
 
 on:
   push:
     branches: [main]
     paths:
       - "housemate_edge/**"
-      - "tests/**"
-      - ".github/workflows/**"
   workflow_dispatch:
 
 env:
@@ -26,33 +41,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # The test gate. A failed suite skips every job below it: nothing logs in,
-  # builds for release or pushes.
   test:
     uses: ./.github/workflows/tests.yml
     permissions:
       contents: read
 
-  init:
-    name: Read the version
+  plan:
+    name: Plan the version
     needs: test
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
-      version: ${{ steps.version.outputs.version }}
+      version: ${{ steps.plan.outputs.version }}
+      current: ${{ steps.plan.outputs.current }}
+      bump: ${{ steps.plan.outputs.bump }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
 
-      - name: Read the add-on's version and check its changelog entry
-        id: version
-        run: |
-          version=$(sed -n 's/^version: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' housemate_edge/config.yaml | head -1)
-          [[ -n "$version" ]] || { echo "::error::no version in housemate_edge/config.yaml"; exit 1; }
-          grep -qx "## $version" housemate_edge/CHANGELOG.md \
-            || { echo "::error::housemate_edge/CHANGELOG.md has no '## $version' entry"; exit 1; }
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Choose the version
+        id: plan
+        run: python3 .github/scripts/release.py plan
 
       - name: Get build matrix
         id: matrix
@@ -63,7 +73,7 @@ jobs:
 
   build:
     name: Build ${{ matrix.arch }} image
-    needs: init
+    needs: plan
     runs-on: ${{ matrix.os }}
     permissions:
       contents: read
@@ -71,7 +81,7 @@ jobs:
       packages: write # push to GitHub Container Registry
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.init.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -83,9 +93,55 @@ jobs:
           arch: ${{ matrix.arch }}
           context: housemate_edge
           image: ${{ matrix.image }}
-          image-tags: ${{ needs.init.outputs.version }}
-          version: ${{ needs.init.outputs.version }}
+          image-tags: ${{ needs.plan.outputs.version }}
+          version: ${{ needs.plan.outputs.version }}
           push: "true"
-          skip-existing: ${{ needs.init.outputs.version }}
+          skip-existing: ${{ needs.plan.outputs.version }}
           cache-gha-scope: housemate-edge
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    name: Tag and bump the version
+    needs: [plan, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+      CURRENT: ${{ needs.plan.outputs.current }}
+      BUMP: ${{ needs.plan.outputs.bump }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+      - name: Tag the built commit
+        run: |
+          # edge-<version> names the commit the images were built from; the
+          # promotion workflow takes stable's files from it.
+          git config user.name "housemate-pipeline"
+          git config user.email "housemate-pipeline@users.noreply.github.com"
+          if git rev-parse -q --verify "refs/tags/edge-${VERSION}" >/dev/null; then
+            [[ "$(git rev-parse "edge-${VERSION}^{commit}")" == "${GITHUB_SHA}" ]] \
+              || { echo "::error::edge-${VERSION} already names a different commit; tags are never moved"; exit 1; }
+          else
+            git tag -a "edge-${VERSION}" "${GITHUB_SHA}" -m "Housemate (edge) ${VERSION}"
+            git push origin "refs/tags/edge-${VERSION}"
+          fi
+
+      - name: Bump the version and the changelog
+        if: env.BUMP == 'true'
+        run: |
+          since=""
+          if git rev-parse -q --verify "refs/tags/edge-${CURRENT}" >/dev/null; then since="edge-${CURRENT}^{commit}"; fi
+          python3 .github/scripts/release.py bump --version "${VERSION}" --since "${since}" --until "${GITHUB_SHA}"
+          if git diff --quiet; then
+            echo "nothing to bump"
+          else
+            git add housemate_edge/config.yaml housemate_edge/CHANGELOG.md
+            git commit -m "Bump edge to ${VERSION} [skip ci]" \
+              -m "Published by the pipeline after both images were pushed. Built from ${GITHUB_SHA}."
+            bash .github/scripts/push-main.sh
+          fi

@@ -9,15 +9,23 @@ builds it with the user. Read [README.md](README.md) for what it is and
 
 - `repository.yaml`, the add-on repository's manifest, and `housemate_edge/`,
   the edge add-on (config, `Dockerfile`, `rootfs/` services, `DOCS.md`,
-  `CHANGELOG.md`). The stable `housemate/` folder arrives with later work.
+  `CHANGELOG.md`).
 - `tests/seam_a/`: the container tests, run from outside (see its harness).
   `HOUSEMATE_IMAGE=<image> python3 -m unittest discover -s tests/seam_a -v`.
   `test_mutants.py` breaks the image on purpose to prove the tests can fail.
 - `.github/workflows/`: `tests.yml` (pull requests, and the gate the publish
-  workflow calls) and `publish-edge.yml` (main: build both architectures,
-  push the image tagged with edge's `version`).
-- Kit, docs and the remaining CI arrive with later work. Two add-ons will live
-  side by side: `housemate` (stable) and `housemate_edge` (edge).
+  workflow calls), `publish-edge.yml` (main: build both architectures, push the
+  images, then tag and bump edge's version and changelog), `promote.yml` (by
+  hand: edge build to stable) and `renovate-pins.yml`. The logic they call is in
+  `.github/scripts/`, tested by `tests/pipeline/`
+  (`python3 -m unittest discover -s tests/pipeline`). `renovate.json` configures
+  Renovate. The whole flow is in `docs/update-pipeline.md`.
+- **Do not bump `version` in `housemate_edge/config.yaml` or write its
+  `CHANGELOG.md` entry by hand**: the publish workflow does both after the image
+  is pushed. `housemate/` (stable) is written only by the promotion workflow.
+- Kit, docs and the remaining CI arrive with later work. Two add-ons live
+  side by side: `housemate` (stable, from the first promotion) and
+  `housemate_edge` (edge).
 - `THIRD_PARTY_NOTICES.md` carries the notices for what is reused.
 
 ## Rules

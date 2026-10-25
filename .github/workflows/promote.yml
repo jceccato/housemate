@@ -1,0 +1,110 @@
+name: Promote edge to stable
+
+# Started by hand (Actions > Promote edge to stable > Run workflow). It takes a
+# build edge has already published and makes it stable's: same images, same
+# version number. Nothing is rebuilt, so stable runs exactly what edge ran.
+#
+# In this order, stopping at the first failure:
+#   1. check     edge has images for the version on both architectures; its
+#                CHANGELOG.md has a non-empty entry for it (the release notes);
+#                the version is newer than stable's; stable has no such image
+#   2. images    copy edge's images to stable's package names (a new tag, never
+#                an overwrite)
+#   3. folder    write housemate/ (config, docs, changelog) from the commit
+#                edge built, at that version
+#   4. release   a GitHub Release v<version> with the notes
+#
+# Leave `version` empty to promote the newest edge build.
+#
+# Needs the repository secret RELEASE_TOKEN once main is protected (see
+# publish-edge.yml). Until then the workflow's own token pushes.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Edge version to promote (empty: the newest edge build)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # the stable folder, the release
+      packages: write # stable's images
+    env:
+      GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+      - name: Choose and check the version
+        id: check
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          version="${INPUT_VERSION}"
+          if [[ -z "$version" ]]; then
+            version=$(python3 - <<'PY'
+          import sys
+          sys.path.insert(0, ".github/scripts")
+          import release
+          print(release.read_version(open("housemate_edge/config.yaml").read()))
+          PY
+            )
+          fi
+          git rev-parse -q --verify "refs/tags/edge-${version}" >/dev/null \
+            || { echo "::error::no edge-${version} tag: edge has not published ${version}"; exit 1; }
+          python3 .github/scripts/release.py promote-check --version "${version}" --notes-out "${RUNNER_TEMP}/notes.md"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Copy the images to stable's names
+        env:
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          # The images first: the version below is written only once both exist.
+          for arch in amd64 aarch64; do
+            docker buildx imagetools create \
+              --tag "ghcr.io/${{ github.repository_owner }}/${arch}-housemate:${VERSION}" \
+              "ghcr.io/${{ github.repository_owner }}/${arch}-housemate-edge:${VERSION}"
+          done
+
+      - name: Write the stable folder
+        env:
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          git config user.name "housemate-pipeline"
+          git config user.email "housemate-pipeline@users.noreply.github.com"
+          # The add-on's files as they were when edge built this version.
+          rm -rf "${RUNNER_TEMP}/edge-src"
+          mkdir -p "${RUNNER_TEMP}/edge-src"
+          git archive "edge-${VERSION}" housemate_edge | tar -x -C "${RUNNER_TEMP}/edge-src"
+          python3 .github/scripts/release.py promote-write \
+            --version "${VERSION}" --source "${RUNNER_TEMP}/edge-src/housemate_edge" --notes "${RUNNER_TEMP}/notes.md"
+          git add housemate
+          git commit -m "Promote edge ${VERSION} to stable [skip ci]" \
+            -m "Same images as edge ${VERSION}, copied to the stable names. Built from $(git rev-parse --short "edge-${VERSION}^{commit}")."
+          bash .github/scripts/push-main.sh
+
+      - name: Create the GitHub Release
+        env:
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          gh release create "v${VERSION}" --repo "${{ github.repository }}" \
+            --target "$(git rev-parse HEAD)" --title "Housemate ${VERSION}" \
+            --notes-file "${RUNNER_TEMP}/notes.md"
