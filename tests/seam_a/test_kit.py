@@ -71,9 +71,9 @@ def sha(path):
 
 
 def snapshot(addon):
-    """Every file under /config: path, content hash, mtime. Git's own and the staged incoming are left out."""
+    """Every file under /config: path, content hash, mtime. Git's own, the staged incoming and the .gitignore OpenCode writes into .opencode at runtime are left out."""
     out = addon.exec(
-        r"cd /config && find . -path ./.git -prune -o -path ./.housemate/incoming -prune -o -type f -printf '%p %T@ ' -exec sha256sum {} \; | sort"
+        r"cd /config && find . -path ./.git -prune -o -path ./.housemate/incoming -prune -o -path ./.opencode/.gitignore -prune -o -type f -printf '%p %T@ ' -exec sha256sum {} \; | sort"
     ).stdout
     return out
 
