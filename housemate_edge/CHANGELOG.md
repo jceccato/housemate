@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.19
+
+- Find an add-on's slug from the entity registry, not its picture (#19)
+
 ## 0.1.18
 
 - Drop ingress_panel: the Supervisor ignores it in config.yaml; the docs say how to show the panel (#18)
