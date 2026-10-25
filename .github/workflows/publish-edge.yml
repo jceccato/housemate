@@ -134,9 +134,7 @@ jobs:
       - name: Bump the version and the changelog
         if: env.BUMP == 'true'
         run: |
-          since=""
-          if git rev-parse -q --verify "refs/tags/edge-${CURRENT}" >/dev/null; then since="edge-${CURRENT}^{commit}"; fi
-          python3 .github/scripts/release.py bump --version "${VERSION}" --since "${since}" --until "${GITHUB_SHA}"
+          python3 .github/scripts/release.py bump --version "${VERSION}" --until "${GITHUB_SHA}"
           if git diff --quiet; then
             echo "nothing to bump"
           else

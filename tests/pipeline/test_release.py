@@ -203,6 +203,17 @@ class Docs(unittest.TestCase):
         self.assertEqual(release.stable_docs("# Housemate (edge)\n\ntext\n"), "# Housemate\n\ntext\n")
 
 
+class PreviousTag(unittest.TestCase):
+    def test_is_the_newest_tag_below_the_version_not_the_configs(self):
+        tags = ["edge-0.1.1", "edge-0.1.3", "edge-0.1.7", "edge-0.1.8", "v0.1.1", "edge-junk"]
+        self.assertEqual(release.previous_tag(tags, "0.1.8"), "edge-0.1.7")
+        self.assertEqual(release.previous_tag(tags, "0.1.9"), "edge-0.1.8")
+        self.assertEqual(release.previous_tag(tags, "0.1.10"), "edge-0.1.8")
+
+    def test_none_when_there_is_no_earlier_build(self):
+        self.assertIsNone(release.previous_tag(["edge-0.1.1"], "0.1.1"))
+
+
 class Registry(unittest.TestCase):
     def test_published_needs_every_architecture(self):
         have = {("amd64", "0.1.4")}
@@ -276,6 +287,28 @@ class BumpCommand(unittest.TestCase):
         self.assertEqual(release.read_version(config), "0.1.5")
         entry = release.changelog_entry((self.dir / "edge" / "CHANGELOG.md").read_text(), "0.1.5")
         self.assertEqual(entry, "- Fix the other thing\n- Add the thing")
+
+    def test_a_queued_build_does_not_repeat_the_notes_of_builds_published_meanwhile(self):
+        # edge-0.1.4 is old; edge-0.1.5 was published from the "Add the thing"
+        # commit while this run waited. Its config.yaml still says 0.1.4.
+        self.git("tag", "edge-0.1.5", "HEAD~2")
+        self.run_bump_to("0.1.6")
+        entry = release.changelog_entry((self.dir / "edge" / "CHANGELOG.md").read_text(), "0.1.6")
+        self.assertEqual(entry, "- Fix the other thing")
+
+    def run_bump_to(self, version):
+        import contextlib
+        import io
+        import os
+
+        cwd = os.getcwd()
+        os.chdir(self.dir)
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                release.main(["bump", "--config", "edge/config.yaml", "--changelog", "edge/CHANGELOG.md",
+                              "--path", "edge", "--version", version, "--until", "HEAD"])
+        finally:
+            os.chdir(cwd)
 
     def test_bump_never_goes_backwards(self):
         cfg = self.dir / "edge" / "config.yaml"

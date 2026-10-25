@@ -118,6 +118,19 @@ def entries_between(text, low, high):
     return sorted(out, key=lambda e: parse(e[0]), reverse=True)
 
 
+def previous_tag(tags, version, prefix="edge-"):
+    """The newest published build before `version`: the highest <prefix><v> with v < version."""
+    found = []
+    for t in tags:
+        if t.startswith(prefix):
+            try:
+                found.append(parse(t[len(prefix):]))
+            except PipelineError:
+                pass
+    older = [v for v in found if v < parse(version)]
+    return prefix + ".".join(map(str, max(older))) if older else None
+
+
 # ---- registry --------------------------------------------------------------
 
 
@@ -281,7 +294,12 @@ def cmd_bump(a):
         print(f"config.yaml is already at {current}, not older than {a.version}; nothing to bump")
         _out(bumped="false")
         return
-    notes = a.note or commit_notes(a.path, a.since, a.until)
+    # The previous build is the newest edge-<v> tag below this version, never
+    # "the version in config.yaml at the built commit": a queued run builds a
+    # commit whose config.yaml predates builds that were published meanwhile,
+    # and its notes would repeat theirs.
+    since = a.since or previous_tag(_git("tag", "--list", "edge-*").split(), a.version)
+    notes = a.note or commit_notes(a.path, since, a.until)
     cfg_path.write_text(set_version(config, a.version))
     if changelog_entry(log, a.version) is None:
         log_path.write_text(add_changelog_entry(log, a.version, notes))
@@ -335,7 +353,7 @@ def main(argv=None):
     s.add_argument("--changelog", default="housemate_edge/CHANGELOG.md")
     s.add_argument("--path", default="housemate_edge")
     s.add_argument("--version", required=True)
-    s.add_argument("--since", default="", help="previous published build's commit or tag")
+    s.add_argument("--since", default="", help="previous published build's commit or tag (default: the newest edge-<v> tag below --version)")
     s.add_argument("--until", default="HEAD", help="the commit that was built")
     s.add_argument("--note", action="append", help="changelog line (repeatable); default: commit subjects since the last bump")
     s.set_defaults(fn=cmd_bump)
