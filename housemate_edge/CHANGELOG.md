@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.5
+
+- Voice review fixes: send a request once, tell once when done, honest reply
+
 ## 0.1.4
 
 - Ignore Home Assistant's run lock; seen tracked on the test VM
