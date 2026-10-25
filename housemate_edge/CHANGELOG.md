@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.12
+
+- Staged: pin code-server 4.141.1 so Renovate has a real minor bump to propose (#12)
+
 ## 0.1.11
 
 - Open Housemate from notifications at /app/<slug>, the frontend route that exists
