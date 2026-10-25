@@ -1,17 +1,20 @@
 #!/bin/bash
 # housemate-agent: OpenCode for the panel's editor tab, started at most once.
 #
-#   housemate-agent              the newest chat (what the panel opens into)
+#   housemate-agent              the chat a job last marked as current
+#                                (/config/.housemate/current-session), else the newest
 #   housemate-agent --new        a new chat, in its own tab
 #   housemate-agent --session ID the chat with that id
 #
-# OpenCode runs in a tmux session of its own (no bar, no keys of tmux's own): a closed browser tab leaves it
-# running, and opening the panel again attaches to the same one instead of
-# starting a second. The name of the tmux session says which chat it holds: the
-# newest chat when "the newest" is asked for, so a chat created since (a voice
-# job, the update review) is not hidden behind an older OpenCode left running.
+# OpenCode runs in a tmux session of its own (no bar, no keys of tmux's own): a
+# closed browser tab leaves it running, and opening the panel again attaches to
+# the same one instead of starting a second. The name of the tmux session says
+# which chat it holds, so a chat marked since (a voice job, the update review)
+# is not hidden behind an older OpenCode left running. After an add-on restart
+# there is no tmux session, so the same call starts OpenCode on the marked chat.
 set -o nounset
 
+current_file="${HOUSEMATE_CURRENT_SESSION:-/config/.housemate/current-session}"
 cd /config || exit 1
 
 case "${1:-}" in
@@ -21,10 +24,21 @@ case "${1:-}" in
         [[ "${id}" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "Not a chat id: ${id}" >&2; exit 2; }
         key="s-${id}"; cmd=(opencode --session "${id}") ;;
     "")
-        newest=$(opencode session list --format json -n 1 2> /dev/null | jq -r '.[0].id // empty' 2> /dev/null)
+        # The chat a job last marked as current, if it still exists; else the newest.
+        recent=$(opencode session list --format json -n 200 2> /dev/null)
+        newest=""
+        if [[ -r "${current_file}" ]]; then
+            marked=$(head -1 "${current_file}" | tr -d '[:space:]')
+            if [[ "${marked}" =~ ^[A-Za-z0-9_-]+$ ]] \
+                && jq -e --arg id "${marked}" 'any(.[]; .id == $id)' <<< "${recent}" > /dev/null 2>&1; then
+                newest="${marked}"
+            fi
+        fi
+        [[ -n "${newest}" ]] || newest=$(jq -r '.[0].id // empty' <<< "${recent}" 2> /dev/null)
         # Only plain ids are used in a tmux session name.
         [[ "${newest}" =~ ^[A-Za-z0-9_-]+$ ]] || newest="none"
-        key="s-${newest}"; cmd=(opencode --continue) ;;
+        if [[ "${newest}" == "none" ]]; then cmd=(opencode); else cmd=(opencode --session "${newest}"); fi
+        key="s-${newest}" ;;
     *) echo "usage: housemate-agent [--new | --session ID]" >&2; exit 2 ;;
 esac
 
