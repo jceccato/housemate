@@ -162,7 +162,7 @@ class Voice(unittest.TestCase):
         self.assertIn("build me a night light", self.wait_for(lambda: self.texts(sid)))
 
         phone = self.wait_for(lambda: self.calls_for("notify/mobile_app_test_phone", sid))[0]["data"]
-        self.assertIn("local_housemate_edge", phone["data"]["url"])
+        self.assertEqual(phone["data"]["url"], "/app/local_housemate_edge")
         self.assertEqual(phone["data"]["url"], phone["data"]["clickAction"])
         persistent = self.calls_for("persistent_notification/create", sid)
         self.assertIn("night light", persistent[0]["data"]["message"])
