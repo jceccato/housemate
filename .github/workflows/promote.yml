@@ -37,7 +37,7 @@ concurrency:
 jobs:
   promote:
     name: Promote
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: write # the stable folder, the release
       packages: write # stable's images
