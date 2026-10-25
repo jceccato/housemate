@@ -26,6 +26,12 @@ mkdir -p \
 # update with every release. The user's own AGENTS.md lives in /config.
 cp /usr/share/housemate/AGENTS.md "${config_dir}/AGENTS.md"
 
+# Built-in skills, replaced on every start like the rules above: the incoming
+# review must work even if the user has changed every file of their own kit.
+rm -rf "${config_dir:?}/skills/incoming-review"
+mkdir -p "${config_dir}/skills"
+cp -r /usr/share/housemate/skills/incoming-review "${config_dir}/skills/incoming-review"
+
 # code-server's first-start settings; after that they are the user's.
 if [[ ! -f /data/code-server/User/settings.json ]]; then
     cp /usr/share/housemate/code-server-settings.json /data/code-server/User/settings.json
@@ -33,6 +39,9 @@ fi
 
 # The starter kit: copied into /config on the very first start only.
 /usr/share/housemate/seed-kit
+if [[ -f /config/.housemate/incoming/manifest.json ]]; then
+    bashio::log.info "Kit changes are waiting in /config/.housemate/incoming; ask the agent to review them."
+fi
 
 provider=$(jq -r '.provider // "go"' "${options}")
 case "${provider}" in

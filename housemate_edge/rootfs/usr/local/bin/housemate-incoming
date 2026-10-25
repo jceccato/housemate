@@ -1,0 +1,258 @@
+#!/usr/bin/env bash
+# Incoming kit changes: stage, report and settle them.
+#
+#   stage            On a start whose image carries a newer kit than the
+#                    manifest, compare three texts per kit file (the base the
+#                    user was shipped, the new kit file, the user's file) and
+#                    stage the differences in /config/.housemate/incoming/.
+#                    Writes nothing outside .housemate/incoming/.
+#   status [--json]  What is waiting (the hook for the update notification).
+#   apply-untouched  Apply the staged changes to files the user never changed
+#                    (the one batch approval). Skips any file edited since.
+#   finish [--force] After the review: make the new kit the base, update the
+#                    manifest, clear incoming.
+#
+# Nothing here changes a user's file except apply-untouched, which the
+# incoming-review skill runs only after the user has approved the batch.
+set -o errexit -o nounset -o pipefail
+umask 022
+
+readonly kit="${HOUSEMATE_KIT_DIR:-/usr/share/housemate/kit}"
+readonly kit_version_file="${HOUSEMATE_KIT_VERSION_FILE:-/usr/share/housemate/kit-version}"
+readonly changelog="${HOUSEMATE_KIT_CHANGELOG:-/usr/share/housemate/kit-changelog.md}"
+readonly dest="${HOUSEMATE_CONFIG_DIR:-/config}"
+readonly state_dir="${dest}/.housemate"
+readonly manifest="${state_dir}/kit-manifest.json"
+readonly incoming="${state_dir}/incoming"
+readonly base_dir="${state_dir}/base"
+
+hash_of() { sha256sum "$1" | cut -d' ' -f1; }
+new_version() { tr -d '[:space:]' < "${kit_version_file}"; }
+is_int() { [[ "$1" =~ ^[0-9]+$ ]]; }
+
+# Copy a file into place by rename, so a crash never leaves half a file.
+put() { # src dst
+    mkdir -p "$(dirname "$2")"
+    cp -p "$1" "$2.housemate-new"
+    mv "$2.housemate-new" "$2"
+}
+
+release_notes() { # from to
+    local from="$1" to="$2" out
+    out=$(awk -v from="${from}" -v to="${to}" '
+        /^## Kit version [0-9]+/ { v = $4 + 0; keep = (v > from + 0 && v <= to + 0) }
+        /^# / { keep = 0 }
+        keep { print }
+    ' "${changelog}" 2> /dev/null || true)
+    echo "# Kit release notes, version ${from} to ${to}"
+    echo
+    if [[ -z "${out//[[:space:]]/}" ]]; then
+        echo "No release notes were recorded for these versions."
+    else
+        printf '%s\n' "${out}"
+    fi
+}
+
+cmd_stage() {
+    [[ -e "${manifest}" ]] || { echo "No manifest yet; nothing to stage."; return 0; }
+    local old new
+    old=$(jq -r '.kit_version' "${manifest}")
+    new=$(new_version)
+    if ! is_int "${old}" || ! is_int "${new}"; then
+        echo "Kit versions must be whole numbers (manifest '${old}', image '${new}')." >&2
+        return 1
+    fi
+    if ((new <= old)); then
+        return 0
+    fi
+
+    local work="${state_dir:?}/incoming.tmp"
+    rm -rf "${work:?}"
+    mkdir -p "${work}/new" "${work}/base"
+    local rows="${work}/rows"
+    : > "${rows}"
+
+    local rel b n u change user outcome
+    while IFS= read -r -d '' rel; do
+        b="" n="" u=""
+        [[ -f "${base_dir}/${rel}" ]] && b=$(hash_of "${base_dir}/${rel}")
+        [[ -f "${kit}/${rel}" ]] && n=$(hash_of "${kit}/${rel}")
+        if [[ -e "${dest}/${rel}" ]]; then
+            if [[ -f "${dest}/${rel}" ]]; then u=$(hash_of "${dest}/${rel}"); else u="not-a-file"; fi
+        fi
+        [[ "${b}" != "${n}" ]] || continue
+        if [[ -z "${b}" ]]; then
+            change=added
+        elif [[ -z "${n}" ]]; then
+            change=removed
+        else
+            change=changed
+        fi
+        if [[ -z "${u}" ]]; then
+            user=missing
+        elif [[ -n "${b}" && "${u}" == "${b}" ]]; then
+            user=untouched
+        elif [[ -n "${n}" && "${u}" == "${n}" ]]; then
+            user=current
+        else
+            user=modified
+        fi
+        case "${change}:${user}" in
+            changed:untouched | added:missing | removed:untouched) outcome=apply ;;
+            changed:modified) outcome=merge ;;
+            changed:missing) outcome=user_deleted ;;
+            added:modified) outcome=conflict ;;
+            removed:modified) outcome=review ;;
+            *) outcome=converged ;;
+        esac
+        if [[ -n "${n}" && "${outcome}" != converged ]]; then
+            mkdir -p "$(dirname "${work}/new/${rel}")"
+            cp -p "${kit}/${rel}" "${work}/new/${rel}"
+        fi
+        if [[ -n "${b}" && "${outcome}" != converged ]]; then
+            mkdir -p "$(dirname "${work}/base/${rel}")"
+            cp -p "${base_dir}/${rel}" "${work}/base/${rel}"
+        fi
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "${rel}" "${change}" "${user}" "${outcome}" "${b}" "${n}" "${u}" >> "${rows}"
+    done < <(
+        {
+            (cd "${kit}" && find . -type f -print0)
+            (cd "${base_dir}" 2> /dev/null && find . -type f -print0 || true)
+        } | sed -z 's|^\./||' | sort -zu
+    )
+
+    release_notes "${old}" "${new}" > "${work}/RELEASE-NOTES.md"
+    cat > "${work}/README.md" << 'README'
+# Incoming kit changes
+
+A newer Housemate carries changes to the starter kit. Nothing here has been
+applied: your files are exactly as you left them. Ask the agent to run the
+incoming-review skill; it compares `base/` (what you were shipped), `new/` (what
+ships now) and your file, proposes merges, and applies only what you approve.
+
+- `manifest.json`: every changed, added or removed kit file and what to do with it.
+- `RELEASE-NOTES.md`: what the maintainer changed.
+- `base/`, `new/`: the shipped text before and after.
+README
+
+    jq -n \
+        --arg from "${old}" --arg to "${new}" \
+        --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --rawfile rows "${rows}" '
+        ($rows | split("\n") | map(select(length > 0) | split("\t"))
+            | map({(.[0]): {change: .[1], user: .[2], outcome: .[3],
+                            base_sha256: .[4], new_sha256: .[5], user_sha256: .[6]}}) | add // {}) as $files
+        | {incoming_version: 1, from_kit_version: $from, kit_version: $to, staged_at: $at,
+           release_notes: "RELEASE-NOTES.md",
+           counts: ([$files[] | select(.outcome != "converged") | .outcome] | group_by(.) | map({(.[0]): length}) | add // {}),
+           files: $files}' > "${work}/manifest.json"
+    rm -f "${rows:?}"
+
+    rm -rf "${incoming:?}"
+    mv "${work}" "${incoming}"
+    echo "Staged kit ${old} -> ${new} as incoming: $(jq -c '.counts' "${incoming}/manifest.json")"
+}
+
+cmd_status() {
+    local json=false
+    [[ "${1:-}" == "--json" ]] && json=true
+    if [[ -f "${incoming}/manifest.json" ]]; then
+        if ${json}; then
+            jq -c --arg path "${incoming}" '{pending: true, from_kit_version, kit_version, counts, path: $path}' "${incoming}/manifest.json"
+        else
+            echo "Incoming kit $(jq -r '"\(.from_kit_version) -> \(.kit_version): \(.counts)"' "${incoming}/manifest.json")"
+        fi
+    elif ${json}; then
+        echo '{"pending":false}'
+    else
+        echo "Nothing incoming."
+    fi
+}
+
+cmd_apply_untouched() {
+    [[ -f "${incoming}/manifest.json" ]] || { echo "Nothing incoming." >&2; return 1; }
+    local rel change expected cur
+    while IFS=$'\t' read -r rel change expected; do
+        cur=""
+        [[ -f "${dest}/${rel}" ]] && cur=$(hash_of "${dest}/${rel}")
+        if [[ "${cur}" != "${expected}" ]]; then
+            echo "skipped ${rel}: changed since it was staged"
+            continue
+        fi
+        case "${change}" in
+            changed | added)
+                put "${incoming}/new/${rel}" "${dest}/${rel}"
+                echo "applied ${rel}"
+                ;;
+            removed)
+                rm -f "${dest:?}/${rel:?}"
+                echo "removed ${rel}"
+                ;;
+        esac
+    done < <(jq -r '.files | to_entries[] | select(.value.outcome == "apply")
+                    | [.key, .value.change, .value.user_sha256] | @tsv' "${incoming}/manifest.json")
+}
+
+cmd_finish() {
+    local force=false
+    [[ "${1:-}" == "--force" ]] && force=true
+    [[ -f "${incoming}/manifest.json" ]] || { echo "Nothing incoming." >&2; return 1; }
+    local staged_version
+    staged_version=$(jq -r '.kit_version' "${incoming}/manifest.json")
+    if [[ "${staged_version}" != "$(new_version)" ]]; then
+        echo "The image's kit is not the one staged (${staged_version}); restart to stage again." >&2
+        return 1
+    fi
+    local rel change n
+    if ! ${force}; then
+        local pending=0
+        while IFS=$'\t' read -r rel change n; do
+            case "${change}" in
+                changed | added)
+                    [[ -f "${dest}/${rel}" && $(hash_of "${dest}/${rel}") == "${n}" ]] || { echo "not yet applied: ${rel}" >&2; pending=1; }
+                    ;;
+                removed)
+                    [[ ! -e "${dest}/${rel}" ]] || { echo "not yet removed: ${rel}" >&2; pending=1; }
+                    ;;
+            esac
+        done < <(jq -r '.files | to_entries[] | select(.value.outcome == "apply")
+                        | [.key, .value.change, .value.new_sha256] | @tsv' "${incoming}/manifest.json")
+        if ((pending)); then
+            echo "Run apply-untouched first, or finish --force to leave them." >&2
+            return 1
+        fi
+    fi
+
+    # The new kit becomes the base for the next comparison.
+    while IFS= read -r -d '' rel; do
+        put "${kit}/${rel}" "${base_dir}/${rel}"
+    done < <(cd "${kit}" && find . -type f -print0 | sed -z 's|^\./||' | sort -z)
+    while IFS= read -r -d '' rel; do
+        [[ -f "${kit}/${rel}" ]] || rm -f "${base_dir:?}/${rel:?}"
+    done < <(cd "${base_dir}" && find . -type f -print0 | sed -z 's|^\./||' | sort -z)
+    find "${base_dir}" -mindepth 1 -type d -empty -delete 2> /dev/null || true
+
+    local hashes
+    hashes=$(mktemp)
+    trap 'rm -f "${hashes}"' RETURN
+    (cd "${kit}" && find . -type f -print0 | sed -z 's|^\./||' | sort -z \
+        | xargs -0 -r sha256sum | awk '{h=$1; $1=""; sub(/^ /,""); print $0 "\t" h}') > "${hashes}"
+    jq --arg v "${staged_version}" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --rawfile hashes "${hashes}" '
+        ($hashes | split("\n") | map(select(length > 0) | split("\t") | {(.[0]): .[1]}) | add // {}) as $kit
+        | .skipped_existing |= map(select($kit[.] != null))
+        | . as $m
+        | .files = ($kit | with_entries(select(.key as $k | ($m.skipped_existing | index($k)) == null)))
+        | .kit_version = $v
+        | .updated_at = $at' "${manifest}" > "${manifest}.tmp"
+    mv "${manifest}.tmp" "${manifest}"
+    rm -rf "${incoming:?}"
+    echo "Kit version ${staged_version} is now the base; incoming cleared."
+}
+
+case "${1:-}" in
+    stage) cmd_stage ;;
+    status) shift; cmd_status "$@" ;;
+    apply-untouched) cmd_apply_untouched ;;
+    finish) shift; cmd_finish "$@" ;;
+    *) echo "usage: housemate-incoming stage | status [--json] | apply-untouched | finish [--force]" >&2; exit 2 ;;
+esac

@@ -32,6 +32,10 @@ jobs:
       - name: Run the pipeline tests
         run: python3 -I -m unittest discover -s tests/pipeline -v
 
+      - name: Run the kit incoming tests
+        # Staging and applying kit changes (bash and jq, no container).
+        run: python3 -I -m unittest discover -s tests/kit -v
+
   seam-a:
     # Seam A: build the image, start it the way the Supervisor would (fixture
     # /config, /data and options; a stand-in Supervisor API), and assert what
