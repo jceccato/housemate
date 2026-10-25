@@ -39,6 +39,7 @@ UNTRACKED = [
     ".storage/cloud",
     ".cloud/cloud.json",
     ".uuid",
+    ".ha_run.lock",
     MANIFEST,
 ]
 TRACKED = [

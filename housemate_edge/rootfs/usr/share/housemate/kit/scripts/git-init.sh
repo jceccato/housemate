@@ -40,6 +40,7 @@ www/tts/
 deps/
 .cloud/
 .uuid
+.ha_run.lock
 __pycache__/
 *.pyc
 
