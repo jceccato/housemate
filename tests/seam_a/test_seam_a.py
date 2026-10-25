@@ -148,6 +148,7 @@ class RestartKeepsState(unittest.TestCase):
         )
         # A real OpenCode session, made through the server API of the one the add-on runs.
         a.exec(
+            "for i in $(seq 180); do curl -sf -m 2 localhost:4096/global/health >/dev/null && break; sleep 1; done; "
             "curl -sf -m 60 -X POST localhost:4096/session -H 'content-type: application/json' "
             "-d '{\"title\":\"survivor\"}'"
         )

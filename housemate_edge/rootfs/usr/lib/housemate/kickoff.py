@@ -330,7 +330,7 @@ class Handler(BaseHTTPRequestHandler):
         is_admin, name = who_asked(body.get("user_id"))
         title = (body.get("title") or "Voice: " + text)[:70]
         sid = None
-        for attempt in range(5):  # OpenCode may still be starting when the first request comes
+        for attempt in range(15):  # OpenCode may still be starting when the first request comes
             try:
                 if sid is None:
                     sid = create_session(title)

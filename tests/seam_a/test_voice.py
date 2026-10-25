@@ -114,7 +114,7 @@ class Voice(unittest.TestCase):
     def calls_for(self, service, session_id):
         return [c for c in self.calls() if c["service"] == service and session_id in json.dumps(c["data"])]
 
-    def wait_for(self, check, timeout=30):
+    def wait_for(self, check, timeout=90):
         deadline = time.time() + timeout
         while time.time() < deadline:
             result = check()
