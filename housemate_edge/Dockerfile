@@ -56,6 +56,8 @@ RUN \
     && apt-get install -y --no-install-recommends \
         git=1:2.47.3-0+deb13u1 \
         less=668-1 \
+        nginx=1.26.3-3+deb13u10 \
+        nginx-common=1.26.3-3+deb13u10 \
         openssh-client=1:10.0p1-7+deb13u4 \
         python3=3.13.5-1 \
         python3-minimal=3.13.5-1 \
@@ -119,7 +121,8 @@ RUN \
     && python3 -I /tmp/vendor_skills.py /tmp/skills /usr/share/housemate/kit --revision "${MATT_SKILLS_REVISION}" \
     && rm -rf /tmp/*
 
-# code-server's own health endpoint, on the Ingress port.
+# code-server's health endpoint, asked through nginx on the Ingress port, so that
+# it checks both.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
     CMD curl --fail --silent http://127.0.0.1:1337/healthz || exit 1
 

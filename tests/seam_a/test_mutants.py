@@ -7,6 +7,7 @@ made to fail is a green light with no wiring behind it.
 
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -80,6 +81,25 @@ class Mutants(unittest.TestCase):
     def test_a_dead_code_server_fails_the_start(self):
         with self.assertRaises(RuntimeError):
             self.run_mutant("dead", [f"RUN sed -i 's|^exec code-server.*|exec sleep 600|' {RUN}"])
+
+    def test_an_open_front_door_is_noticed(self):
+        addon = self.run_mutant("opennginx", [
+            "RUN sed -i 's/^deny all;/allow all;/' /etc/s6-overlay/s6-rc.d/nginx/run",
+        ])
+        r = addon.other("wget", "-qO-", "-T", "5", f"http://{addon.ip}:1337/healthz")
+        self.assertEqual(r.returncode, 0)  # what test_only_the_ingress_proxy_gets_in must catch
+
+    def test_an_open_voice_endpoint_is_noticed(self):
+        addon = self.run_mutant("openkickoff", [
+            "RUN sed -i 's/if client_address\\[0\\] in ALLOWED:/if True:/' /usr/lib/housemate/kickoff.py",
+        ])
+        deadline = time.time() + 60
+        while True:
+            r = addon.other("wget", "-qO-", "-T", "3", f"http://{addon.ip}:8765/healthz")
+            if r.returncode == 0 or time.time() > deadline:
+                break
+            time.sleep(1)
+        self.assertEqual(r.returncode, 0)  # what test_core_reaches_the_endpoint_and_another_add_on_does_not must catch
 
 
 if __name__ == "__main__":

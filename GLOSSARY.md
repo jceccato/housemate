@@ -32,9 +32,16 @@ spoken request. It is created through the **kick-off** endpoint, and its
 household is notified when it needs an answer or is done.
 
 **Kick-off**
-The small endpoint inside the add-on (port 8765, internal network only) that
+The small endpoint inside the add-on (port 8765) that
 Home Assistant calls to start a **job**. A request from a non-administrator is
-put in the chat and waits for an administrator.
+put in the chat and waits for an administrator. It answers only Home Assistant
+Core (the Supervisor network's gateway, 172.30.32.1) and the add-on itself, because
+it takes no credential and believes the user id in the request.
+
+**Ingress proxy**
+The Supervisor (172.30.32.2), which signs you in to Home Assistant and relays the
+panel. nginx inside the add-on lets in only it, so no other add-on reaches
+code-server.
 
 **Kit**
 The generic starter set copied into the user's `/config` once, when the add-on first starts:

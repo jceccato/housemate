@@ -10,7 +10,8 @@ Housemate's add-on reuses patterns from
 code-server behind Ingress with authentication left to Home Assistant, the
 `s6-overlay` service layout (an init oneshot ahead of a long-running
 code-server service that takes the container down when it stops), the
-code-server flags and first-start settings, and the Dockerfile's way of
+code-server flags and first-start settings, nginx in front of code-server letting
+in only the Ingress proxy, and the Dockerfile's way of
 installing a pinned code-server release and an extension into its extensions
 directory. Its licence, with its copyright notice:
 

@@ -8,10 +8,11 @@ readonly workspace="/config"
 bashio::log.info "Starting code-server..."
 
 # No code-server login: Home Assistant's Ingress is the sign-in, and the panel
-# is admin-only. Nothing is published on the network.
+# is admin-only. It listens on the loopback only; nginx (the nginx service)
+# is the only way in, and lets in only the Ingress proxy.
 cd "${workspace}" || bashio::exit.nok "Could not change directory to ${workspace}"
 exec code-server \
-    --bind-addr 0.0.0.0:1337 \
+    --bind-addr 127.0.0.1:1338 \
     --auth none \
     --config /data/code-server/config.yaml \
     --user-data-dir /data/code-server \

@@ -53,6 +53,39 @@ class GoWithKey(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("lastHeartbeat", body)
 
+    def test_only_the_ingress_proxy_gets_in(self):
+        ip = self.addon.ip
+        # Another add-on on the same network: by name, by address, and on
+        # code-server's own port (which is the loopback's, not the network's).
+        for url in (f"http://{self.addon.name}:1337/healthz", f"http://{ip}:1337/", f"http://{ip}:1337/?folder=/config",
+                    f"http://{ip}:1338/healthz"):
+            r = self.addon.other("wget", "-qO-", "-T", "3", url)
+            self.assertNotEqual(r.returncode, 0, url)
+            self.assertNotIn("lastHeartbeat", r.stdout, url)
+        # Core is not the Ingress proxy either: it is refused the panel.
+        status, _, body = self.addon.get("/healthz", source=self.addon.core_client)
+        self.assertEqual(status, 403)
+        self.assertNotIn("lastHeartbeat", body)
+        # The proxy is let in.
+        self.assertEqual(self.addon.get("/healthz")[0], 200)
+
+    def test_code_server_listens_on_the_loopback_alone(self):
+        listening = self.addon.listening()
+        self.assertIn("127.0.0.1:1338", listening)
+        self.assertIn("0.0.0.0:1337", listening)  # nginx
+        self.assertNotIn("0.0.0.0:1338", listening)
+        self.assertEqual(self.addon.listening6(), set())  # nothing on IPv6 at all
+        self.assertIn("--bind-addr 127.0.0.1:1338", self.code_server_cmdline())
+
+    def test_websockets_pass_through_the_front_door(self):
+        # The panel is all websockets: without the Upgrade headers passed on,
+        # code-server would answer this with a plain 302, not 101.
+        r = docker("exec", self.addon.ingress_client, "curl", "-s", "-i", "-m", "5",
+                   "-H", "Connection: Upgrade", "-H", "Upgrade: websocket", "-H", "Sec-WebSocket-Version: 13",
+                   "-H", "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+                   f"http://{self.addon.name}:1337/", check=False)
+        self.assertTrue(r.stdout.startswith("HTTP/1.1 101"), r.stdout[:300])
+
     def test_the_workspace_is_config(self):
         status, headers, _ = self.addon.get("/")
         self.assertEqual(status, 302)
@@ -229,6 +262,9 @@ class Manifest(unittest.TestCase):
         self.assertNotIn("ports", c)
         self.assertNotIn("host_network", c)
 
+    def test_panel_is_in_the_sidebar_after_install(self):
+        self.assertIs(self.config["ingress_panel"], True)
+
     def test_access_is_declared(self):
         c = self.config
         self.assertTrue(c["homeassistant_api"])
@@ -249,6 +285,34 @@ class Manifest(unittest.TestCase):
         repo = yaml.safe_load((ADDON_DIR.parent / "repository.yaml").read_text())
         self.assertIn("name", repo)
         self.assertTrue((ADDON_DIR / "Dockerfile").exists())
+
+
+
+class RealAddresses(unittest.TestCase):
+    """The add-on as Home Assistant runs it: no test override of who is let in."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.addon = AddOn({"provider": "go", "api_key": KEY}, CONFIG_FILES)
+        cls.addon.real_addresses = True
+        cls.addon.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.addon.stop()
+
+    def test_the_ingress_proxy_is_172_30_32_2_and_core_172_30_32_1(self):
+        self.assertEqual(self.addon.exec("cat /run/housemate-nginx-allow.conf").stdout,
+                         "allow 172.30.32.2;\nallow 127.0.0.1;\ndeny all;\n")
+        allowed = self.addon.exec("python3 -c 'import sys; sys.path.insert(0, \"/usr/lib/housemate\"); "
+                                  "import kickoff; print(sorted(kickoff.ALLOWED))'").stdout.strip()
+        self.assertEqual(allowed, "['127.0.0.1', '172.30.32.1']")
+
+    def test_nothing_on_the_test_network_is_let_in(self):
+        # The harness's clients have other addresses, so every one is refused.
+        self.assertEqual(self.addon.get("/healthz")[0], 403)
+        self.assertNotEqual(self.addon.as_core("curl", "-sf", "-m", "3", f"http://{self.addon.ip}:8765/healthz").returncode, 0)
+        self.assertNotEqual(self.addon.other("wget", "-qO-", "-T", "3", f"http://{self.addon.ip}:1337/healthz").returncode, 0)
 
 
 if __name__ == "__main__":
