@@ -116,7 +116,11 @@ class FirstStart(unittest.TestCase):
 
     def test_the_manifest_records_the_kit_version_and_a_hash_per_file(self):
         self.assertEqual(self.manifest["kit_version"], (SHARE / "kit-version").read_text().strip())
-        self.assertEqual(self.manifest["files"], {rel: sha(KIT / rel) for rel in KIT_FILES})
+        files = self.manifest["files"]
+        # Every file in this repository's kit, unchanged; the rest were vendored
+        # at build time (test_baseline.py checks those) under these two places.
+        self.assertEqual({r: h for r, h in files.items() if r in KIT_FILES}, {rel: sha(KIT / rel) for rel in KIT_FILES})
+        self.assertTrue(all(r.startswith((".opencode/", "docs/agents/")) for r in files if r not in KIT_FILES))
         self.assertEqual(self.manifest["skipped_existing"], [])
 
     def test_the_shipped_text_is_kept_as_the_base_for_a_later_compare(self):
