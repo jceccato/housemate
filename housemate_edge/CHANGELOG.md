@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.23
+
+- Open the panel straight into OpenCode (#23)
+
 ## 0.1.22
 
 - Make the daily review's phone take effect without a restart
