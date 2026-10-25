@@ -29,7 +29,7 @@ builds it with the user. Read [README.md](README.md) for what it is and
   text in `/config/.housemate/base/`; on a start with a newer kit it calls
   `housemate-incoming stage` (`rootfs/usr/local/bin/`), which stages the
   difference in `/config/.housemate/incoming/` and touches nothing else. Any
-  change to a kit file needs a new kit version and a changelog section. The
+  change to a kit file (the files generated at the image build included) should bump the kit version and add a changelog section: without a bump the change is still staged, but with no release notes. The
   logic is tested without a container by `python3 -m unittest discover -s tests/kit`.
 - Docs and the remaining CI arrive with later work. Two add-ons live
   side by side: `housemate` (stable, from the first promotion) and
