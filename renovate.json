@@ -90,6 +90,16 @@
         "https://deb.debian.org/debian?suite=trixie&components=main&binaryArch=amd64",
         "https://deb.debian.org/debian-security?suite=trixie-security&components=main&binaryArch=amd64"
       ]
+    },
+    {
+      "description": "Runner labels (ubuntu-24.04 and its arm twin) are changed on purpose, not by a bot.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDepNames": [
+        "ubuntu"
+      ],
+      "enabled": false
     }
   ]
 }
