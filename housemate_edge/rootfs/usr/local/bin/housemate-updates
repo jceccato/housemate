@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# The update review's helper: what is waiting, backups, one update at a time,
+# health checks. `housemate-updates` with no arguments lists the commands.
+exec python3 -u /usr/lib/housemate/updates.py "$@"

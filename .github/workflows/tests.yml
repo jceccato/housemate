@@ -32,6 +32,10 @@ jobs:
       - name: Run the pipeline tests
         run: python3 -I -m unittest discover -s tests/pipeline -v
 
+      - name: Run the update review tests
+        # What is waiting, the daily summary, the schedule, health, breaking changes.
+        run: python3 -I -m unittest discover -s tests/updates -v
+
       - name: Run the kit incoming tests
         # Staging and applying kit changes (bash and jq, no container).
         run: python3 -I -m unittest discover -s tests/kit -v
