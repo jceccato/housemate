@@ -54,7 +54,9 @@ API, build in a package, run the config check, reload, commit with a why. Then
    `/grill <the idea in a sentence>` themselves. The grilling, `/to-spec` and
    `/to-tickets` are commands only the user starts: never start one yourself,
    never load the `grilling` skill to hold the interview on the user's behalf,
-   and never answer a grilling's questions in the user's place.
+   and never answer a grilling's questions in the user's place. (When the user
+   has typed the command, the message you receive is the command's own text:
+   follow it. That is the user starting it.)
 2. After the grilling the user types `/to-spec` (writes
    `tracker/<feature>/spec.md`) and `/to-tickets` (writes
    `tracker/<feature>/issues/NN-<slug>.md`). Say so if they ask what is next.
@@ -73,7 +75,8 @@ spec and one line per outcome, and the sub-agents hold the detail.
 
 For each ticket, in turn:
 
-1. **Claim it.** Set `Status: claimed` in the ticket and commit that by path.
+1. **Claim it.** Set the ticket's status line to `claimed` (keep the form the
+   ticket already uses) and commit that by path.
 2. **Hand it to a sub-agent**, with OpenCode's `task` tool (a general sub-agent),
    one at a time. Its brief carries: the ticket's path and the spec's path; to
    read `AGENTS.md` first; to build what the ticket's "What to build" says,
@@ -89,7 +92,7 @@ For each ticket, in turn:
    with the parent of the ticket's first commit as the fixed point, naming the
    commits to judge. Have the sub-agent (or a new one) commit the fixes it calls
    for.
-5. **Close the ticket**: `Status: resolved`, committed by path. Then the next.
+5. **Close the ticket**: status `resolved`, committed by path. Then the next.
 
 ### Gates
 
