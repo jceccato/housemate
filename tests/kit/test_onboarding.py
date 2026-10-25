@@ -131,6 +131,22 @@ class Sheet(unittest.TestCase):
         self.assertTrue(placed.rstrip().endswith(self.mod.END))
 
 
+class ReviewNotify(unittest.TestCase):
+    def setUp(self):
+        self.mod = load("/nonexistent")
+
+    def test_only_the_review_phone_changes_and_the_key_is_kept(self):
+        options = {"provider": "go", "api_key": "k", "review_time": "09:00"}
+        self.assertEqual(
+            self.mod.with_review_notify(options, "notify.mobile_app_pixel"),
+            {**options, "review_notify": "notify.mobile_app_pixel"})
+
+    def test_something_that_is_not_a_notify_service_is_refused(self):
+        for bad in ("", "light.lamp", "notify.", "notify.a b", "notify.mobile_app_x; rm"):
+            with self.assertRaises(SystemExit):
+                self.mod.with_review_notify({}, bad)
+
+
 class Progress(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

@@ -125,6 +125,15 @@ housemate-onboarding phones
   how to add the phone later (install the Home Assistant app and sign in), mark
   the step `skipped` with the note `no phone registered`, and carry on.
 
+Tell the daily update review which phone to use. This writes the add-on's
+`review_notify` option through the Supervisor (the key and other options are kept,
+nothing is printed); the review needs no restart of Home Assistant, and says at
+9 in the morning what is waiting:
+
+```bash
+housemate-onboarding review-notify notify.mobile_app_<name>
+```
+
 Keep the service name (`notify.mobile_app_<name>`) in `memory/phone-to-notify.md`
 (one fact, with a line in `memory/MEMORY.md`), because the voice step and the
 update review use it. Mark the step done.

@@ -8,6 +8,7 @@ calls for the parts that are code, not conversation.
     housemate-onboarding step NAME STATE [NOTE] STATE: pending, done or skipped
     housemate-onboarding scan [--dry-run]       entities, areas and devices into the cheat sheet
     housemate-onboarding phones                 the notify services of companion-app phones
+    housemate-onboarding review-notify SERVICE  set the add-on option review_notify (the daily update review's phone)
     housemate-onboarding decline                the user does not want it now: stop offering it on its own
     housemate-onboarding reset                  forget progress (the skill re-runs from the top)
 
@@ -200,6 +201,27 @@ def fetch():
     return states, entities, devices, areas
 
 
+def with_review_notify(options, service):
+    """The add-on's options with the daily review's phone set; everything else (the key too) kept as it is."""
+    if not re.fullmatch(r"notify\.[a-z0-9_]+", service):
+        raise SystemExit(f"{service!r} is not a notify service name (notify.mobile_app_<phone>)")
+    return {**options, "review_notify": service}
+
+
+def set_review_notify(service):
+    """Through the Supervisor's options API. The options are read and written back whole, never printed."""
+    import urllib.request
+    base = os.environ.get("HOUSEMATE_SUPERVISOR_URL", "http://supervisor")
+    auth = {"Authorization": "Bearer " + os.environ.get("SUPERVISOR_TOKEN", "")}
+    with urllib.request.urlopen(urllib.request.Request(base + "/addons/self/options/config", headers=auth), timeout=15) as r:
+        options = json.load(r)["data"]
+    body = json.dumps({"options": with_review_notify(options, service)}).encode()
+    req = urllib.request.Request(base + "/addons/self/options", data=body, method="POST",
+                                 headers={**auth, "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        r.read()
+
+
 def phones():
     services = ask({"type": "get_services"})
     return sorted(f"notify.{name}" for name in services.get("notify", {}) if name.startswith("mobile_app_"))
@@ -254,6 +276,9 @@ def main(argv):
         cmd_status()
     elif cmd == "scan":
         cmd_scan("--dry-run" in rest)
+    elif cmd == "review-notify" and len(rest) == 1:
+        set_review_notify(rest[0])
+        print(f"The daily update review will notify {rest[0]}.")
     elif cmd == "phones":
         found = phones()
         print("\n".join(found) if found else "No companion-app phone is registered with Home Assistant.")
