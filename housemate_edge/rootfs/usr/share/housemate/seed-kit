@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Seed the starter kit into /config, once.
+#
+# The kit is copied on the first start and is the user's from then on. What was
+# shipped is recorded in /config/.housemate/kit-manifest.json (the kit version
+# and a SHA-256 per file): the base that a later three-way compare needs. Once
+# the manifest exists this script does nothing, whatever the image now carries.
+# A file already in /config is never overwritten; it is listed as skipped.
+set -o errexit -o nounset -o pipefail
+umask 022
+
+readonly kit="/usr/share/housemate/kit"
+readonly kit_version_file="/usr/share/housemate/kit-version"
+readonly dest="${HOUSEMATE_CONFIG_DIR:-/config}"
+readonly state_dir="${dest}/.housemate"
+readonly manifest="${state_dir}/kit-manifest.json"
+
+if [[ -e "${manifest}" ]]; then
+    echo "Kit already seeded; leaving /config alone."
+    exit 0
+fi
+
+mkdir -p "${state_dir}"
+shipped=$(mktemp)
+skipped=$(mktemp)
+trap 'rm -f "${shipped}" "${skipped}"' EXIT
+
+while IFS= read -r -d '' file; do
+    rel="${file#"${kit}"/}"
+    hash=$(sha256sum "${file}" | cut -d' ' -f1)
+    target="${dest}/${rel}"
+    if [[ -e "${target}" ]]; then
+        # Identical to the kit's file: ours from an interrupted first start.
+        if [[ -f "${target}" ]] && [[ $(sha256sum "${target}" | cut -d' ' -f1) == "${hash}" ]]; then
+            printf '%s\t%s\n' "${rel}" "${hash}" >> "${shipped}"
+        else
+            printf '%s\n' "${rel}" >> "${skipped}"
+        fi
+        continue
+    fi
+    mkdir -p "$(dirname "${target}")"
+    cp -p "${file}" "${target}"
+    printf '%s\t%s\n' "${rel}" "${hash}" >> "${shipped}"
+done < <(find "${kit}" -type f -print0 | sort -z)
+
+jq -n \
+    --arg version "$(tr -d '[:space:]' < "${kit_version_file}")" \
+    --arg seeded_at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --rawfile shipped "${shipped}" \
+    --rawfile skipped "${skipped}" '
+    {
+        manifest_version: 1,
+        kit_version: $version,
+        seeded_at: $seeded_at,
+        files: ($shipped | split("\n") | map(select(length > 0) | split("\t") | {(.[0]): .[1]}) | add // {}),
+        skipped_existing: ($skipped | split("\n") | map(select(length > 0)))
+    }' > "${manifest}.tmp"
+mv "${manifest}.tmp" "${manifest}"
+echo "Kit version $(tr -d '[:space:]' < "${kit_version_file}") seeded into ${dest}."

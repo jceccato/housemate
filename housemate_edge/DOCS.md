@@ -31,6 +31,24 @@ failing after your home address changes, check the allowlist on your account.
 Everything OpenCode and code-server keep (sessions, settings, sign-in) lives in
 the add-on's own data folder and survives restarts and updates.
 
+## The starter kit
+
+On the first start the add-on copies a starter kit into your `/config`: an
+`AGENTS.md` of Home Assistant rules, a cheat sheet (`docs/cheat-sheet.md`), a
+`memory/` folder, how-tos in `docs/how-to/`, a `scripts/` folder and a local
+`tracker/`. They are yours from then on: the add-on never writes them again.
+What it copied is recorded, with the kit version and a hash of each file, in
+`/config/.housemate/kit-manifest.json`. A file you already had is never
+overwritten; it is listed in that manifest as skipped.
+
+## Git in /config
+
+`/config/scripts/git-init.sh` puts `/config` under git (the agent runs it
+during onboarding). It keeps out `secrets.yaml`, databases, logs, backups,
+media and TTS caches, and all of `.storage` except the dashboard and helper
+files; authentication and integration credentials are never tracked. Edit
+`.gitignore` to change the policy.
+
 ## Protection mode
 
 Docker access is declared but stays off while the add-on's **Protection mode**

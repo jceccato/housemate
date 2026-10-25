@@ -31,6 +31,9 @@ if [[ ! -f /data/code-server/User/settings.json ]]; then
     cp /usr/share/housemate/code-server-settings.json /data/code-server/User/settings.json
 fi
 
+# The starter kit: copied into /config on the very first start only.
+/usr/share/housemate/seed-kit
+
 provider=$(jq -r '.provider // "go"' "${options}")
 case "${provider}" in
     go) provider_id="opencode-go" ;;
