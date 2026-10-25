@@ -1,7 +1,7 @@
 # The kit is copied into /config once; later changes arrive as incoming, never overwriting
 
 The kit (agent rules, cheat sheet, memory, how-tos, scripts, skills) is copied
-into the user's `/config` on first open and is theirs from then on. When a later
+into the user's `/config` when the add-on first starts and is theirs from then on. When a later
 image carries a different kit, the add-on stages each changed file in an
 **incoming** folder with release notes. The agent reviews it with the user by a
 three-way comparison (the base that shipped before, what ships now, what the

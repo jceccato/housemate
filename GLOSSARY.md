@@ -22,7 +22,7 @@ Nothing in it is applied without the user's say-so. _Avoid_: "update",
 "overwrite", "sync".
 
 **Kit**
-The generic starter set copied into the user's `/config` once on first open:
+The generic starter set copied into the user's `/config` once, when the add-on first starts:
 an agent rules file, a cheat sheet, a memory folder, how-tos, scripts, skills and
 a local-markdown tracker. From then on it is the user's. _Avoid_: "template",
 "defaults".

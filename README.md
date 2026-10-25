@@ -22,7 +22,7 @@ The plan, in short:
 - Two add-ons from one repository: **Housemate** (stable) and
   **Housemate (edge)**, the newest build, for testers.
 - Amd64 and aarch64 images, so a Green, Yellow or Raspberry Pi can run it.
-- Your choice of OpenCode Go or OpenCode Zen as the model provider.
+- Your choice of OpenCode Go or OpenCode Zen as the model provider. Housemate itself is free; the model provider charges for its use (Zen offers some free models), so cost depends on the provider you pick.
 
 ## Support
 
@@ -39,7 +39,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) and the
 
 Housemate stands on other people's work:
 
-- [OpenCode](https://github.com/sst/opencode) (MIT), the agent.
+- [OpenCode](https://github.com/anomalyco/opencode) (MIT), the agent.
 - [code-server](https://github.com/coder/code-server) (MIT), the editor in the
   panel.
 - The [hassio-addons](https://github.com/hassio-addons) base images (MIT), the
