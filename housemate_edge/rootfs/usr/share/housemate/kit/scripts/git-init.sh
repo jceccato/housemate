@@ -66,6 +66,10 @@ __pycache__/
 EOF
 fi
 
+existing=false
+if [[ -d .git ]] && git rev-parse --verify --quiet HEAD >/dev/null; then
+    existing=true
+fi
 if [[ ! -d .git ]]; then
     git init --quiet --initial-branch=main
 fi
@@ -73,10 +77,30 @@ fi
 git config user.name >/dev/null || git config user.name "Housemate"
 git config user.email >/dev/null || git config user.email "housemate@localhost"
 
-# Stop tracking anything the policy ignores that an earlier repository tracked.
-git ls-files -z --cached --ignored --exclude-standard | xargs -0 -r git rm --cached --quiet --
-git add -A
-if ! git diff --cached --quiet; then
-    git commit --quiet -m "Start tracking /config: the configuration as it was"
+if [[ "${existing}" == true ]]; then
+    # A repository with history, and perhaps work in progress in it. Apply the policy and
+    # commit only that: the .gitignore, and the removal of what the policy ignores. Everything
+    # else the user has changed or staged stays exactly as it is. The commit is made in a
+    # scratch copy of the index, built from HEAD, so nothing of theirs can ride along.
+    scratch=$(mktemp -d)
+    trap 'rm -rf "${scratch}"' EXIT
+    export GIT_INDEX_FILE="${scratch}/index"
+    git read-tree HEAD
+    git ls-files -z --cached --ignored --exclude-standard | xargs -0 -r git rm --cached --quiet --
+    git add .gitignore
+    if ! git diff --cached --quiet HEAD; then
+        git commit --quiet -m "Apply Housemate's ignore policy to /config"
+    fi
+    unset GIT_INDEX_FILE
+    # The real index: the same changes, and nothing else touched.
+    git ls-files -z --cached --ignored --exclude-standard | xargs -0 -r git rm --cached --quiet --
+    git add .gitignore
+else
+    # Stop tracking anything the policy ignores that an earlier repository tracked.
+    git ls-files -z --cached --ignored --exclude-standard | xargs -0 -r git rm --cached --quiet --
+    git add -A
+    if ! git diff --cached --quiet; then
+        git commit --quiet -m "Start tracking /config: the configuration as it was"
+    fi
 fi
 echo "/config is under git."
