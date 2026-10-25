@@ -202,9 +202,11 @@ def notify(session_id, target, title, message):
 
 # -- OpenCode -----------------------------------------------------------------------------------
 
-def start_session(text, title, run, asker):
-    session = call("POST", OPENCODE + "/session", {"title": title})
-    sid = session["id"]
+def create_session(title):
+    return call("POST", OPENCODE + "/session", {"title": title})["id"]
+
+
+def send_request(sid, text, run, asker):
     if run:
         body = {"parts": [{"type": "text", "text": text}], "system": JOB_BRIEF}
     else:
@@ -216,7 +218,6 @@ def start_session(text, title, run, asker):
                 f"so nothing has been run. An administrator can continue this chat to go ahead.\n\n{text}")}],
         }
     call("POST", f"{OPENCODE}/session/{sid}/prompt_async", body)
-    return sid
 
 
 # -- the record of jobs we notify about -------------------------------------------------------------
@@ -331,14 +332,17 @@ class Handler(BaseHTTPRequestHandler):
         sid = None
         for attempt in range(5):  # OpenCode may still be starting when the first request comes
             try:
-                sid = start_session(text, title, is_admin, name)
+                if sid is None:
+                    sid = create_session(title)
+                    # Tracked before the request is sent: its first events must not be missed.
+                    track(sid, notify=target, title=title, waiting=not is_admin, busy=False)
+                send_request(sid, text, is_admin, name)
                 break
             except Exception as e:  # noqa: BLE001
                 log(f"could not start a session (attempt {attempt + 1}): {e}")
                 time.sleep(2)
-        if sid is None:
+        else:
             return self.reply(502, {"error": "OpenCode did not take the request"})
-        track(sid, notify=target, title=title, waiting=not is_admin, busy=False)
         if is_admin:
             notify(sid, target, "Housemate started a job", f"{title}")
         else:

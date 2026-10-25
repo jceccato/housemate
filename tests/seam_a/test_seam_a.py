@@ -146,11 +146,10 @@ class RestartKeepsState(unittest.TestCase):
             "cd /config && echo '{\"workbench.colorTheme\": \"Default Dark Modern\"}' "
             "> /data/code-server/User/settings.json"
         )
-        # A real OpenCode session, made through its own server API.
+        # A real OpenCode session, made through the server API of the one the add-on runs.
         a.exec(
-            "cd /config && (opencode serve --port 4097 >/dev/null 2>&1 &); "
-            "for i in $(seq 30); do curl -sf localhost:4097/session >/dev/null && break; sleep 1; done; "
-            "curl -sf -X POST localhost:4097/session -H 'content-type: application/json' -d '{\"title\":\"survivor\"}'"
+            "curl -sf -m 60 -X POST localhost:4096/session -H 'content-type: application/json' "
+            "-d '{\"title\":\"survivor\"}'"
         )
         self.assertIn("survivor", a.exec("cd /config && opencode session list").stdout)
         shipped_rules = a.exec("cat /usr/share/housemate/AGENTS.md").stdout
