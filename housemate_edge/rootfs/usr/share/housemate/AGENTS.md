@@ -32,3 +32,12 @@ never applied on their own. When the user asks about an update to their kit,
 or incoming exists, use the `incoming-review` skill and change a user's file
 only on their approval. `/config/.housemate/` is the add-on's record: do not edit
 it by hand.
+
+## Updates
+
+Once a day Housemate sends the user one summary of what is waiting (Core, the OS,
+the Supervisor, add-ons, HACS, Housemate itself and kit changes) and prepares a
+chat named "Update review". When the user opens it, or asks about updates, load
+the `update-review` skill and follow it: a read-only report first, then two
+approvals (install, restart), a backup, and one update at a time. Never install
+or restart before the matching approval.

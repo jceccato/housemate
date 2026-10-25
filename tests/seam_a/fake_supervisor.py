@@ -6,6 +6,9 @@ Runs inside the add-on image (it has python3), as the host named `supervisor`:
 * GET  /addons/self/info             slug and hostname, as the Supervisor reports them
 * POST /core/api/services/<d>/<s>    Home Assistant service calls; recorded
 * WS   /core/websocket               Home Assistant's websocket, enough for `config/auth/list`
+* GET  /core/api/states            entity states, from states.json (default: none)
+* GET  /core/api/config            Core as running, in UTC
+* WS   config/entity_registry/list  from registry.json (default: none); repairs/list_issues: none
 * GET  /_calls                       the recorded service calls, as a JSON list
 * POST /v1/chat/completions (port 8081)  a language model: answers "Done.", or, when asked to
                                      "ask me", calls OpenCode's question tool first
@@ -28,9 +31,14 @@ CALLS = []
 LOCK = threading.Lock()
 
 
-def load(name):
-    with open(os.path.join(DIR, name)) as f:
-        return json.load(f)
+def load(name, default=None):
+    try:
+        with open(os.path.join(DIR, name)) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        if default is None:
+            raise
+        return default
 
 
 def ws_read(rfile):
@@ -75,6 +83,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"result": "ok", "data": load("options.json")})
         elif self.path == "/addons/self/info":
             self.send_json({"result": "ok", "data": {"slug": SLUG, "hostname": SLUG.replace("_", "-")}})
+        elif self.path == "/core/api/states":
+            self.send_json(load("states.json", []))
+        elif self.path == "/core/api/config":
+            self.send_json({"state": "RUNNING", "version": "2026.10.4", "time_zone": "UTC"})
         elif self.path == "/_calls":
             with LOCK:
                 self.send_json(CALLS)
@@ -118,6 +130,10 @@ class Handler(BaseHTTPRequestHandler):
                 ws_send(self.wfile, {"type": "auth_ok"})
             elif msg["type"] == "config/auth/list":
                 ws_send(self.wfile, {"id": msg["id"], "type": "result", "success": True, "result": load("users.json")})
+            elif msg["type"] == "config/entity_registry/list":
+                ws_send(self.wfile, {"id": msg["id"], "type": "result", "success": True, "result": load("registry.json", [])})
+            elif msg["type"] == "repairs/list_issues":
+                ws_send(self.wfile, {"id": msg["id"], "type": "result", "success": True, "result": {"issues": []}})
             else:
                 ws_send(self.wfile, {"id": msg["id"], "type": "result", "success": False,
                                      "error": {"code": "unknown_command", "message": "no"}})

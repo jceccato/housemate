@@ -28,9 +28,12 @@ cp /usr/share/housemate/AGENTS.md "${config_dir}/AGENTS.md"
 
 # Built-in skills, replaced on every start like the rules above: the incoming
 # review must work even if the user has changed every file of their own kit.
-rm -rf "${config_dir:?}/skills/incoming-review"
 mkdir -p "${config_dir}/skills"
-cp -r /usr/share/housemate/skills/incoming-review "${config_dir}/skills/incoming-review"
+for skill in /usr/share/housemate/skills/*/; do
+    name=$(basename "${skill}")
+    rm -rf "${config_dir:?}/skills/${name}"
+    cp -r "${skill}" "${config_dir}/skills/${name}"
+done
 
 # code-server's first-start settings; after that they are the user's.
 if [[ ! -f /data/code-server/User/settings.json ]]; then

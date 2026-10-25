@@ -9,6 +9,10 @@ and sends another when a job needs an answer or is done.
 
     POST /kickoff   {"text": "...", "user_id": "...", "notify": "notify.mobile_app_x"}
                     -> 202 {"session_id": ..., "waiting_for_admin": bool, "url": ...}
+                    With "prepare": true the text is put in a new chat and left there,
+                    nothing run and nothing announced (the daily update review prepares
+                    its briefed session this way; the notification it sends is its own).
+                    Later questions and the finish are still announced to `notify`.
     GET  /healthz   -> 200
 
 A request from anyone who is not a Home Assistant administrator (or from nobody
@@ -350,13 +354,18 @@ class Handler(BaseHTTPRequestHandler):
         if body.get("notify") and not target:
             return self.reply(400, {"error": "notify is not a notify service name"})
 
-        is_admin, name = who_asked(body.get("user_id"))
+        prepare = body.get("prepare") is True
+        is_admin, name = (False, None) if prepare else who_asked(body.get("user_id"))
         title = (body.get("title") or "Voice: " + text)[:70]
         try:
             wait_for_opencode()
             sid = create_session(title)
             # Tracked before the request is sent: its first events must not be missed.
-            track(sid, notify=target, title=title, waiting=not is_admin, busy=False, done=False)
+            track(sid, notify=target, title=title, waiting=not is_admin and not prepare, busy=False, done=False)
+            if prepare:
+                call("POST", f"{OPENCODE}/session/{sid}/prompt_async",
+                     {"noReply": True, "parts": [{"type": "text", "text": text}]})
+                return self.reply(202, {"session_id": sid, "waiting_for_admin": False, "prepared": True, "url": panel_url()})
             send_request(sid, text, is_admin, name)  # once: a retry could run the job twice
         except Exception as e:  # noqa: BLE001
             log(f"could not start a session: {e}")

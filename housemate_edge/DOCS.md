@@ -18,6 +18,8 @@ editor's title bar.
 | ------ | ------- |
 | `provider` | `go` for OpenCode Go, `zen` for OpenCode Zen. |
 | `api_key` | Your key from [opencode.ai](https://opencode.ai). Optional with Zen, whose free models need none. |
+| `review_notify` | Optional. The notify service of your phone for the daily update review (for example `notify.mobile_app_my_phone`). |
+| `review_time` | When the daily update review is sent, `HH:MM` in Home Assistant's time zone. Default `09:00`. |
 
 The key is written to OpenCode's provider configuration when the add-on starts.
 Besides the add-on's own private options and data, it is not put in the logs,
@@ -104,6 +106,30 @@ of the add-on's hostname, reachable from Home Assistant on its internal network.
 The port is not published on your network. The endpoint takes no password:
 anything on Home Assistant's internal network that can reach it can start a job
 as a non-administrator's request or, naming an administrator's id, as theirs.
+
+## Updates
+
+Once a day (09:00 in Home Assistant's time zone, or the **Time of the daily
+update review** option) Housemate looks at everything waiting: Home Assistant
+Core, the operating system, the Supervisor, add-ons, HACS, Housemate itself, and
+changes to your starter kit staged as incoming. If anything is, you get **one**
+notification, a persistent one in Home Assistant and, when the option **Phone to
+notify for the daily update review** names your phone's notify service, one on
+the phone. Nothing waiting, no notification. Device firmware and other servers'
+versions are listed but never updated.
+
+Its **Review** link opens Housemate, where a chat named "Update review" is
+already waiting with nothing run yet. Say go, and the agent follows the
+`update-review` skill: it reads the release notes between your installed and the
+target version, matches the backward-incompatible changes against the
+integrations and YAML in your configuration, and tells you which apply. It then
+asks you twice, with a question you can answer from the phone: **install** (after a
+full backup, one update at a time with a health check after each) and **restart**
+(the host reboot after an OS update, the Core update, a restart for HACS, and
+Housemate's own update, which ends the chat). Give both up front ("do it all") or
+leave the restart to be asked. It stops at the first failure and never rolls
+back without asking. The procedure is `docs/how-to/update-home-assistant.md` in
+your `/config`; edit it for your house.
 
 ## Protection mode
 

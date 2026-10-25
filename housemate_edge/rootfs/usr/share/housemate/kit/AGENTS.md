@@ -12,7 +12,7 @@ update with the add-on.
 - `memory/` holds what you have learned: one fact per file, indexed in
   `memory/MEMORY.md`. Read the index at the start of a task.
 - `docs/how-to/` has the recipes: write and reload an automation, test a
-  template, read history, roll back with git.
+  template, read history, roll back with git, update Home Assistant.
 - `scripts/` holds scripts to reuse. `tracker/` holds bigger work, as markdown.
 - `.opencode/skills/` holds skills you may load when the work calls for them
   (`home-assistant` for the API, `tdd`, `diagnosing-bugs`, `code-review`,

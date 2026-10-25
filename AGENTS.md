@@ -31,6 +31,12 @@ builds it with the user. Read [README.md](README.md) for what it is and
   difference in `/config/.housemate/incoming/` and touches nothing else. Any
   change to a kit file (the files generated at the image build included) should bump the kit version and add a changelog section: without a bump the change is still staged, but with no release notes. The
   logic is tested without a container by `python3 -m unittest discover -s tests/kit`.
+- The daily update review is `rootfs/usr/lib/housemate/updates.py` (command
+  `housemate-updates`, run once a day by the `update-review` service); the
+  procedure the agent follows is the built-in `update-review` skill and the
+  kit's `docs/how-to/update-home-assistant.md`. Its logic is tested without a
+  container by `python3 -m unittest discover -s tests/updates`; the container
+  proof is `tests/seam_a/test_review.py`.
 - Docs and the remaining CI arrive with later work. Two add-ons live
   side by side: `housemate` (stable, from the first promotion) and
   `housemate_edge` (edge).

@@ -1,0 +1,8 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Housemate: the daily update summary (one notification a day, and a briefed
+# session for its Review button). See DOCS.md, "Updates".
+# ==============================================================================
+bashio::log.info "Starting the daily update review..."
+exec python3 -u /usr/lib/housemate/updates.py serve
