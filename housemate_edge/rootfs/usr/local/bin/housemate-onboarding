@@ -1,0 +1,276 @@
+#!/usr/bin/env python3
+"""Housemate onboarding: where the user is in it, and the scan that seeds the cheat sheet.
+
+The onboarding skill walks the user through the steps; this tool is what it
+calls for the parts that are code, not conversation.
+
+    housemate-onboarding status                 overall state and each step
+    housemate-onboarding step NAME STATE [NOTE] STATE: pending, done or skipped
+    housemate-onboarding scan [--dry-run]       entities, areas and devices into the cheat sheet
+    housemate-onboarding phones                 the notify services of companion-app phones
+    housemate-onboarding decline                the user does not want it now: stop offering it on its own
+    housemate-onboarding reset                  forget progress (the skill re-runs from the top)
+
+Progress is kept in /config/.housemate/onboarding.json (the add-on's record, not
+configuration, so git ignores it). Standard library only.
+"""
+
+import datetime
+import json
+import os
+import re
+import sys
+
+STEPS = ["provider", "git", "scan", "phone", "remote", "voice", "automation"]
+STATES = ["pending", "done", "skipped"]
+
+CONFIG = os.environ.get("HOUSEMATE_CONFIG_DIR", "/config")
+STATE_FILE = os.path.join(CONFIG, ".housemate", "onboarding.json")
+SHEET = os.path.join(CONFIG, "docs", "cheat-sheet.md")
+LIB = os.environ.get("HOUSEMATE_LIB", "/usr/lib/housemate")
+
+START = "<!-- housemate-scan:start -->"
+END = "<!-- housemate-scan:end -->"
+
+# Domains that are not things a person talks about: the cheat sheet is for what
+# can be asked for or built on, and a few hundred of these would bury it.
+SKIP_DOMAINS = {
+    "update", "event", "tts", "stt", "conversation", "ai_task", "wake_word", "assist_satellite",
+    "button", "number", "select", "text", "date", "time", "datetime", "image", "todo", "zone",
+    "sun", "tag", "persistent_notification", "notify",
+}
+MAX_ROWS = 400
+
+
+# -- progress ---------------------------------------------------------------------------
+
+def now():
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def load_state():
+    try:
+        with open(STATE_FILE) as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        data = {}
+    data.setdefault("steps", {})
+    return data
+
+
+def save_state(data):
+    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+    tmp = STATE_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, STATE_FILE)
+
+
+def overall(data):
+    """new: nothing touched. declined: nothing touched and the user said not now.
+    complete: every step done or skipped. else in_progress."""
+    steps = data.get("steps", {})
+    if not any(steps.get(s, {}).get("state", "pending") != "pending" for s in STEPS):
+        return "declined" if data.get("declined") else "new"
+    if all(steps.get(s, {}).get("state") in ("done", "skipped") for s in STEPS):
+        return "complete"
+    return "in_progress"
+
+
+def set_step(name, state, note=""):
+    if name not in STEPS:
+        raise SystemExit(f"unknown step {name!r}; the steps are: {', '.join(STEPS)}")
+    if state not in STATES:
+        raise SystemExit(f"unknown state {state!r}; use one of: {', '.join(STATES)}")
+    data = load_state()
+    data["steps"][name] = {"state": state, "note": note, "at": now()}
+    data["updated_at"] = now()
+    save_state(data)
+    return data
+
+
+# -- the scan ---------------------------------------------------------------------------
+
+def spoken_name(entity, state, registry):
+    """What a person calls it: the name set in Home Assistant, else its friendly name."""
+    attributes = (state or {}).get("attributes", {})
+    return (
+        (registry or {}).get("name")
+        or attributes.get("friendly_name")
+        or (registry or {}).get("original_name")
+        or entity
+    )
+
+
+def build_rows(states, entities, devices, areas):
+    """One row per thing worth listing: dicts with name, entity_id, area, notes.
+
+    states: Home Assistant's state objects. entities, devices, areas: the three
+    registries as the websocket lists them. Disabled, hidden and diagnostic or
+    configuration entities are left out, as are domains nobody asks for by name.
+    """
+    area_names = {a["area_id"]: a["name"] for a in areas}
+    device_area = {d["id"]: d.get("area_id") for d in devices}
+    registry = {e["entity_id"]: e for e in entities}
+    state_by_id = {s["entity_id"]: s for s in states}
+    rows, left_out = [], 0
+    for entity_id in sorted(set(state_by_id) | set(registry)):
+        domain = entity_id.split(".", 1)[0]
+        reg = registry.get(entity_id)
+        if domain in SKIP_DOMAINS:
+            continue
+        if reg and (reg.get("disabled_by") or reg.get("hidden_by") or reg.get("entity_category")):
+            continue
+        state = state_by_id.get(entity_id)
+        if state is None:
+            continue  # registered but not loaded: nothing to say about it now
+        area_id = (reg or {}).get("area_id") or device_area.get((reg or {}).get("device_id"))
+        attributes = state.get("attributes", {})
+        notes = [domain]
+        if attributes.get("device_class"):
+            notes[0] = f"{domain}, {attributes['device_class']}"
+        if attributes.get("unit_of_measurement"):
+            notes[0] += f" ({attributes['unit_of_measurement']})"
+        aliases = (reg or {}).get("aliases") or []
+        if aliases:
+            notes.append("also called " + ", ".join(f'"{a}"' for a in aliases))
+        rows.append({
+            "name": spoken_name(entity_id, state, reg),
+            "entity_id": entity_id,
+            "area": area_names.get(area_id, ""),
+            "notes": "; ".join(notes),
+        })
+    # A room's things together, rooms alphabetically, the unassigned last.
+    rows.sort(key=lambda r: (r["area"] == "", r["area"].lower(), r["entity_id"].split(".")[0], r["name"].lower()))
+    if len(rows) > MAX_ROWS:
+        left_out = len(rows) - MAX_ROWS
+        rows = rows[:MAX_ROWS]
+    return rows, left_out
+
+
+def cell(text):
+    return str(text).replace("|", "/").replace("\n", " ").strip()
+
+
+def render_block(rows, left_out, areas, devices, when=None):
+    lines = [
+        START,
+        f"<!-- Written by Housemate's onboarding on {when or now()}. Running the scan again replaces",
+        "everything between these two markers; keep your own notes outside them. -->",
+        "",
+        f"The scan found {len(areas)} areas, {len(devices)} devices and {len(rows) + left_out} entities worth naming.",
+        "",
+        "| Spoken name | Entity ID | Area | Notes |",
+        "| --- | --- | --- | --- |",
+    ]
+    for r in rows:
+        lines.append(f"| {cell(r['name'])} | `{r['entity_id']}` | {cell(r['area'])} | {cell(r['notes'])} |")
+    if left_out:
+        lines += ["", f"{left_out} more were left out to keep this short; ask the API for them."]
+    lines.append(END)
+    return "\n".join(lines) + "\n"
+
+
+def place_block(sheet_text, block):
+    """The cheat sheet with the scan block in it: replaced in place, else before Quirks, else at the end."""
+    pattern = re.compile(re.escape(START) + r".*?" + re.escape(END) + r"\n?", re.S)
+    if pattern.search(sheet_text):
+        return pattern.sub(lambda _: block, sheet_text, count=1)
+    quirks = re.search(r"^## Quirks", sheet_text, re.M)
+    if quirks:
+        return sheet_text[: quirks.start()] + block + "\n" + sheet_text[quirks.start():]
+    sep = "" if not sheet_text or sheet_text.endswith("\n\n") else ("\n" if sheet_text.endswith("\n") else "\n\n")
+    return sheet_text + sep + block
+
+
+# -- Home Assistant -----------------------------------------------------------------------
+
+def ask(message):
+    sys.path.insert(0, LIB)
+    import kickoff  # the Supervisor websocket client the kick-off endpoint already uses
+    return kickoff.websocket_call(message)
+
+
+def fetch():
+    states = ask({"type": "get_states"})
+    entities = ask({"type": "config/entity_registry/list"})
+    devices = ask({"type": "config/device_registry/list"})
+    areas = ask({"type": "config/area_registry/list"})
+    return states, entities, devices, areas
+
+
+def phones():
+    services = ask({"type": "get_services"})
+    return sorted(f"notify.{name}" for name in services.get("notify", {}) if name.startswith("mobile_app_"))
+
+
+# -- commands -----------------------------------------------------------------------------
+
+def cmd_status():
+    data = load_state()
+    print(f"onboarding: {overall(data)}")
+    for s in STEPS:
+        step = data["steps"].get(s, {})
+        note = f" - {step['note']}" if step.get("note") else ""
+        print(f"  {s}: {step.get('state', 'pending')}{note}")
+
+
+def cmd_scan(dry_run):
+    states, entities, devices, areas = fetch()
+    rows, left_out = build_rows(states, entities, devices, areas)
+    block = render_block(rows, left_out, areas, devices)
+    if dry_run:
+        sys.stdout.write(block)
+        return
+    try:
+        with open(SHEET) as f:
+            text = f.read()
+    except OSError:
+        text = "# Cheat sheet\n\nEntities, areas and quirks of this house.\n\n"
+    os.makedirs(os.path.dirname(SHEET), exist_ok=True)
+    with open(SHEET + ".tmp", "w") as f:
+        f.write(place_block(text, block))
+    os.replace(SHEET + ".tmp", SHEET)
+    by_area = {}
+    for r in rows:
+        by_area[r["area"] or "(no area)"] = by_area.get(r["area"] or "(no area)", 0) + 1
+    print(f"Wrote {len(rows)} entities to {SHEET} ({len(areas)} areas, {len(devices)} devices).")
+    for area, n in sorted(by_area.items()):
+        print(f"  {area}: {n}")
+    if left_out:
+        print(f"  {left_out} more were left out.")
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__)
+        return 0
+    cmd, rest = argv[0], argv[1:]
+    if cmd == "status":
+        cmd_status()
+    elif cmd == "step" and len(rest) >= 2:
+        set_step(rest[0], rest[1], " ".join(rest[2:]))
+        cmd_status()
+    elif cmd == "scan":
+        cmd_scan("--dry-run" in rest)
+    elif cmd == "phones":
+        found = phones()
+        print("\n".join(found) if found else "No companion-app phone is registered with Home Assistant.")
+    elif cmd == "decline":
+        data = load_state()
+        data["declined"] = True
+        data["updated_at"] = now()
+        save_state(data)
+        print("Noted: onboarding will not be offered on its own. The user can ask for it any time.")
+    elif cmd == "reset":
+        save_state({"steps": {}})
+        print("Onboarding progress cleared.")
+    else:
+        print(__doc__, file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
