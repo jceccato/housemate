@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.20
+
+- Onboarding: the phone step also sets review_notify for the daily update review
+
 ## 0.1.19
 
 - Find an add-on's slug from the entity registry, not its picture (#19)
