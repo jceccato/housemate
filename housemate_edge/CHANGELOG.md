@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8
+
+- Review fixes: name no lab in the notice, keep the kit's domain-docs line generic
+- Refuse to stage without a kit directory; ignore staged paths outside /config
+- Stage newer kit files as incoming, never overwriting, with an incoming-review skill
+
 ## 0.1.7
 
 - Refuse to stage without a kit directory; ignore staged paths outside /config
