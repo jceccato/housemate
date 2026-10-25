@@ -39,7 +39,23 @@ On the first start the add-on copies a starter kit into your `/config`: an
 `tracker/`. They are yours from then on: the add-on never writes them again.
 What it copied is recorded, with the kit version and a hash of each file, in
 `/config/.housemate/kit-manifest.json`. A file you already had is never
-overwritten; it is listed in that manifest as skipped.
+overwritten; it is listed in that manifest as skipped. The shipped text of every
+kit file is kept beside it, in `/config/.housemate/base/`, so that a later
+update can tell what you changed. If you delete `/config/.housemate/`, the next
+start seeds again: files you have are never overwritten, but kit files you had
+deleted come back.
+
+### When the kit changes: incoming
+
+A newer Housemate may carry a better kit. It never overwrites your files: on the
+first start with a newer kit it stages each changed, added or removed kit file in
+`/config/.housemate/incoming/`, with the kit's release notes
+(`RELEASE-NOTES.md`) and the text you were shipped. Nothing else is touched.
+Ask the agent to review incoming (it uses the `incoming-review` skill): it
+compares what you were shipped, what ships now and your file, and proposes
+merges. Files you never changed go through in one batch approval; nothing is
+applied without your say-so. The add-on's built-in rules are separate: they
+update with every release and are not part of this.
 
 ## Git in /config
 

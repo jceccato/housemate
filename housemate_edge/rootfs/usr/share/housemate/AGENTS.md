@@ -23,3 +23,12 @@ directory. These rules ship with the add-on and update with it. The user's own
   `!secret`, and do not display or copy the values.
 - Say what you changed and why when you finish. If you are unsure whether a
   change is safe, say so and ask before making it.
+
+## Incoming kit changes
+
+A newer Housemate may stage changes to the user's kit files in
+`/config/.housemate/incoming/` (check with `housemate-incoming status`). They are
+never applied on their own. When the user asks about an update to their kit,
+or incoming exists, use the `incoming-review` skill and change a user's file
+only on their approval. `/config/.housemate/` is the add-on's record: do not edit
+it by hand.

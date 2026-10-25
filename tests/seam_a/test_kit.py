@@ -71,9 +71,9 @@ def sha(path):
 
 
 def snapshot(addon):
-    """Every file under /config: path, content hash, mtime. Git's own are left out."""
+    """Every file under /config: path, content hash, mtime. Git's own and the staged incoming are left out."""
     out = addon.exec(
-        r"cd /config && find . -path ./.git -prune -o -type f -printf '%p %T@ ' -exec sha256sum {} \; | sort"
+        r"cd /config && find . -path ./.git -prune -o -path ./.housemate/incoming -prune -o -type f -printf '%p %T@ ' -exec sha256sum {} \; | sort"
     ).stdout
     return out
 
@@ -147,21 +147,37 @@ class SecondStart(unittest.TestCase):
         a.restart()
         self.assertEqual(snapshot(a), before)
 
-    def test_user_edits_and_deletions_stay_and_a_newer_kit_is_not_written(self):
+    def test_user_edits_and_deletions_stay_when_a_newer_kit_arrives_and_the_change_is_staged(self):
+        """Seam A for incoming: the user's files are byte-identical, the change is staged."""
         a = self.addon
         manifest_before = a.exec(f"cat /config/{MANIFEST}").stdout
         a.exec("echo 'my own rules' > /config/AGENTS.md; rm /config/docs/how-to/read-history.md")
-        # The image now carries a different kit (as a newer release would).
+        # The image now carries a newer kit (as a newer release would).
         a.exec("echo 'a better rule' >> /usr/share/housemate/kit/docs/cheat-sheet.md; "
+               "echo 'rules v2' >> /usr/share/housemate/kit/AGENTS.md; "
+               "echo 'changed' >> /usr/share/housemate/kit/docs/how-to/read-history.md; "
+               "printf '# Kit changelog\\n\\n## Kit version 2\\nA better cheat sheet.\\n' > /usr/share/housemate/kit-changelog.md; "
                "echo 2 > /usr/share/housemate/kit-version; "
                "echo 'new file' > /usr/share/housemate/kit/docs/new.md")
         before = snapshot(a)
+        # Init runs this on every start; the container's image files are what a new image would carry.
         a.exec("/usr/share/housemate/seed-kit")
         self.assertEqual(snapshot(a), before)
         self.assertEqual(a.exec(f"cat /config/{MANIFEST}").stdout, manifest_before)
         self.assertFalse(a.exec("test -e /config/docs/new.md", check=False).returncode == 0)
         self.assertFalse(a.exec("test -e /config/docs/how-to/read-history.md", check=False).returncode == 0)
         self.assertEqual(a.exec("cat /config/AGENTS.md").stdout, "my own rules\n")
+        staged = json.loads(a.exec("cat /config/.housemate/incoming/manifest.json").stdout)
+        self.assertEqual(staged["kit_version"], "2")
+        outcomes = {rel: e["outcome"] for rel, e in staged["files"].items()}
+        self.assertEqual(outcomes, {"AGENTS.md": "merge", "docs/cheat-sheet.md": "apply",
+                                    "docs/how-to/read-history.md": "user_deleted", "docs/new.md": "apply"})
+        self.assertIn("A better cheat sheet", a.exec("cat /config/.housemate/incoming/RELEASE-NOTES.md").stdout)
+
+    def test_the_review_skill_and_helper_are_in_the_image(self):
+        a = self.addon
+        self.assertIn("incoming-review", a.exec("cat /data/opencode/config/opencode/skills/incoming-review/SKILL.md").stdout)
+        self.assertIn("pending", json.loads(a.exec("housemate-incoming status --json").stdout))
 
 
 class ExistingFilesAreNeverOverwritten(unittest.TestCase):
@@ -278,6 +294,16 @@ class KitMutants(unittest.TestCase):
         addon.exec("rm /config/docs/how-to/read-history.md")
         addon.restart()
         self.assertTrue(addon.exec("test -e /config/docs/how-to/read-history.md", check=False).returncode == 0)
+
+    def test_an_incoming_that_overwrites_the_users_file_is_caught(self):
+        addon = self.start_mutant("incoming-overwrite", [
+            "RUN sed -i 's|^    echo \"Staged kit|    cp -r \"${kit}/.\" \"${dest}/\"; echo \"Staged kit|' /usr/local/bin/housemate-incoming",
+        ])
+        addon.start()
+        addon.exec("echo 'my own rules' > /config/AGENTS.md; "
+                   "echo 'rules v2' >> /usr/share/housemate/kit/AGENTS.md; echo 2 > /usr/share/housemate/kit-version")
+        addon.exec("/usr/share/housemate/seed-kit")
+        self.assertNotEqual(addon.exec("cat /config/AGENTS.md").stdout, "my own rules\n")
 
     def test_an_ignore_policy_without_secrets_is_caught(self):
         addon = self.start_mutant("nosecrets", [

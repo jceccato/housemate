@@ -4,19 +4,24 @@
 # The kit is copied on the first start and is the user's from then on. What was
 # shipped is recorded in /config/.housemate/kit-manifest.json (the kit version
 # and a SHA-256 per file): the base that a later three-way compare needs. Once
-# the manifest exists this script does nothing, whatever the image now carries.
+# the manifest exists this script writes none of those files again; when the
+# image carries a newer kit it only stages the difference as incoming
+# (housemate-incoming stage), for the agent to review with the user.
 # A file already in /config is never overwritten; it is listed as skipped.
 set -o errexit -o nounset -o pipefail
 umask 022
 
-readonly kit="/usr/share/housemate/kit"
-readonly kit_version_file="/usr/share/housemate/kit-version"
+readonly kit="${HOUSEMATE_KIT_DIR:-/usr/share/housemate/kit}"
+readonly kit_version_file="${HOUSEMATE_KIT_VERSION_FILE:-/usr/share/housemate/kit-version}"
 readonly dest="${HOUSEMATE_CONFIG_DIR:-/config}"
 readonly state_dir="${dest}/.housemate"
 readonly manifest="${state_dir}/kit-manifest.json"
 
 if [[ -e "${manifest}" ]]; then
     echo "Kit already seeded; leaving /config alone."
+    # Staging must never stop the add-on from starting.
+    "${HOUSEMATE_INCOMING:-/usr/local/bin/housemate-incoming}" stage \
+        || echo "Could not stage incoming kit changes; the kit in /config is untouched." >&2
     exit 0
 fi
 

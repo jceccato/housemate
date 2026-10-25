@@ -23,7 +23,15 @@ builds it with the user. Read [README.md](README.md) for what it is and
 - **Do not bump `version` in `housemate_edge/config.yaml` or write its
   `CHANGELOG.md` entry by hand**: the publish workflow does both after the image
   is pushed. `housemate/` (stable) is written only by the promotion workflow.
-- Kit, docs and the remaining CI arrive with later work. Two add-ons live
+- The kit is `housemate_edge/rootfs/usr/share/housemate/kit/` (with
+  `kit-version` and `kit-changelog.md` beside it, a `## Kit version N` section
+  per version). `seed-kit` copies it into `/config` once and keeps the shipped
+  text in `/config/.housemate/base/`; on a start with a newer kit it calls
+  `housemate-incoming stage` (`rootfs/usr/local/bin/`), which stages the
+  difference in `/config/.housemate/incoming/` and touches nothing else. Any
+  change to a kit file needs a new kit version and a changelog section. The
+  logic is tested without a container by `python3 -m unittest discover -s tests/kit`.
+- Docs and the remaining CI arrive with later work. Two add-ons live
   side by side: `housemate` (stable, from the first promotion) and
   `housemate_edge` (edge).
 - `THIRD_PARTY_NOTICES.md` carries the notices for what is reused.
