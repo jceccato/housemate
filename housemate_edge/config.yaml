@@ -5,7 +5,10 @@ description: The newest Housemate build, for testers. An agent in the sidebar th
 url: https://github.com/jceccato/housemate
 # The Supervisor pulls the image tagged with `version`. There is no `latest`,
 # and an image is pushed before the version that names it.
-image: ghcr.io/jceccato/housemate-edge
+# Per-architecture images ({arch} is filled in by the Supervisor). The generic
+# multi-arch name was tried first: the manifest push was refused (403) for a
+# package no workflow had created, so the per-arch names are the contract.
+image: ghcr.io/jceccato/{arch}-housemate-edge
 arch:
   - aarch64
   - amd64

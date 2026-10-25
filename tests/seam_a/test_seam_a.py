@@ -212,7 +212,7 @@ class Manifest(unittest.TestCase):
     def test_identity(self):
         c = self.config
         self.assertEqual((c["slug"], c["name"]), ("housemate_edge", "Housemate (edge)"))
-        self.assertEqual(c["image"], "ghcr.io/jceccato/housemate-edge")
+        self.assertEqual(c["image"], "ghcr.io/jceccato/{arch}-housemate-edge")
         self.assertEqual(sorted(c["arch"]), ["aarch64", "amd64"])
 
     def test_panel_is_admin_only_ingress_and_publishes_no_port(self):

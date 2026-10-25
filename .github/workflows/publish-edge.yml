@@ -89,20 +89,3 @@ jobs:
           skip-existing: ${{ needs.init.outputs.version }}
           cache-gha-scope: housemate-edge
           container-registry-password: ${{ secrets.GITHUB_TOKEN }}
-
-  manifest:
-    name: Publish the multi-arch manifest
-    needs: [init, build]
-    runs-on: ubuntu-24.04
-    permissions:
-      id-token: write
-      packages: write
-    steps:
-      - name: Publish the manifest
-        uses: home-assistant/builder/actions/publish-multi-arch-manifest@7412f0023ea9b6e58e8bb5059f1660f51376f49a # 2026.09.0
-        with:
-          architectures: ${{ env.ARCHITECTURES }}
-          image-name: ${{ env.IMAGE_NAME }}
-          image-tags: ${{ needs.init.outputs.version }}
-          skip-existing: ${{ needs.init.outputs.version }}
-          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
