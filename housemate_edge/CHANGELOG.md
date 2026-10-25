@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.9
+
+- Edge's panel is titled Housemate (edge); document the skills pin
+- Stage a changed kit even when the kit version was not bumped
+
 ## 0.1.8
 
 - Review fixes: name no lab in the notice, keep the kit's domain-docs line generic
