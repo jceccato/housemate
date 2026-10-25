@@ -57,9 +57,9 @@ API, build in a package, run the config check, reload, commit with a why. Then
    and never answer a grilling's questions in the user's place. (When the user
    has typed the command, the message you receive is the command's own text:
    follow it. That is the user starting it.)
-2. After the grilling the user types `/to-spec` (writes
-   `tracker/<feature>/spec.md`) and `/to-tickets` (writes
-   `tracker/<feature>/issues/NN-<slug>.md`). Say so if they ask what is next.
+2. Say up front what follows the grilling: the user types `/to-spec` (writes
+   `tracker/<feature>/spec.md`) and then `/to-tickets` (writes
+   `tracker/<feature>/issues/NN-<slug>.md`).
 3. When they come back and say to go, or when they ask you to work an existing
    spec, **work the tickets** (section 4).
 
@@ -68,8 +68,8 @@ If the user declines the grilling after all, that is yolo: say so and do it.
 ## 4. Work the tickets, one at a time
 
 Read the spec once. List the tickets with their `Status:` and `Blocked by:`
-lines. The **frontier** is every ticket that is `ready-for-agent`, not
-`claimed`, and whose blockers are `resolved`. Take the lowest number. Show the
+lines. The **frontier** is every ticket that is `ready-for-agent` or `ready-for-human`
+(a gate, below), and whose blockers are `resolved`. Take the lowest number. Show the
 user the order in a line or two, then start. Keep to the frontier: you hold the
 spec and one line per outcome, and the sub-agents hold the detail.
 
@@ -102,8 +102,8 @@ choice that is theirs to make. A ticket with a gate runs up to the gate, then
 stops. Prepare the exact value, command or screen so the gate is a paste and a
 confirmation, then ask the user in the question shape of section 2: what you
 will do, what they will notice, what to reply. Wait. Never guess past a gate
-and never do the user's part for them. If a ticket's criteria make a gate
-clear, set it `ready-for-human` rather than `ready-for-agent`, and say why.
+and never do the user's part for them. A ticket whose gate is clear from the start is `ready-for-human`: still worked
+up to its gate, with the user beside you.
 
 ## 5. Finish properly
 
@@ -117,7 +117,7 @@ effort alike:
    `docs/cheat-sheet.md`, lasting facts into `memory/` (one fact per file, with
    a line in the index), anything you worked out the hard way into
    `docs/how-to/`.
-3. **Script what you repeat.** Something done for the second time becomes a
+3. **Script what you repeat**, as `AGENTS.md` says: a repeated job becomes a
    script in `scripts/` or an automation.
 4. **Close the spec.** Set the spec's status to done (a line at its top), with
    what was built and what was left out, and commit.
