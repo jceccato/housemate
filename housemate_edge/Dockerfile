@@ -57,6 +57,13 @@ RUN \
         git=1:2.47.3-0+deb13u1 \
         less=668-1 \
         openssh-client=1:10.0p1-7+deb13u4 \
+        python3=3.13.5-1 \
+        python3-minimal=3.13.5-1 \
+        python3.13=3.13.5-2+deb13u5 \
+        python3.13-minimal=3.13.5-2+deb13u5 \
+        libpython3-stdlib=3.13.5-1 \
+        libpython3.13-stdlib=3.13.5-2+deb13u5 \
+        libpython3.13-minimal=3.13.5-2+deb13u5 \
         unzip=6.0-29+deb13u1 \
     \
     && curl -fsSL --retry 5 -o /tmp/opencode.tar.gz \

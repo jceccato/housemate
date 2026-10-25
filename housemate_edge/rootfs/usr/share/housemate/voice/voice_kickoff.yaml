@@ -1,0 +1,41 @@
+blueprint:
+  name: Housemate voice kick-off
+  description: >-
+    Say "Housemate, build me ..." to Assist and Housemate starts a job in its
+    chat. A notification on your phone opens it, and tells you when the job
+    needs an answer or is done. A request from someone who is not a Home
+    Assistant administrator waits in the chat for an administrator.
+  domain: automation
+  source_url: https://github.com/jceccato/housemate/blob/main/housemate_edge/rootfs/usr/share/housemate/voice/voice_kickoff.yaml
+  input:
+    notify_service:
+      name: Phone to notify
+      description: >-
+        The notify service of the phone that should hear about jobs, for
+        example notify.mobile_app_my_phone (Developer tools, Actions, lists
+        them). Leave empty to use persistent notifications only.
+      default: ""
+      selector:
+        text:
+
+# Needs the `rest_command.housemate_kickoff` action, which the add-on's
+# `housemate-voice-install` script sets up with the blueprint.
+triggers:
+  - trigger: conversation
+    command:
+      - "Housemate {request}"
+      - "Hey Housemate {request}"
+
+actions:
+  - action: rest_command.housemate_kickoff
+    data:
+      text: "{{ trigger.slots.request }}"
+      user_id: >-
+        {{ trigger.user_input.context.user_id
+           if trigger.user_input is defined
+              and trigger.user_input.context is defined
+              and trigger.user_input.context.user_id
+           else '' }}
+      notify: !input notify_service
+  - set_conversation_response: "Okay, I've started that. I'll message you when it needs you or it is done."
+mode: queued

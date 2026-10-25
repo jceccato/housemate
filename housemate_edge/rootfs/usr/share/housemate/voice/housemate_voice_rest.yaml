@@ -1,0 +1,10 @@
+# Housemate: the action the voice blueprint calls. It posts the request to the
+# add-on's kick-off endpoint, which is reachable from Home Assistant by the
+# add-on's hostname on the internal network. Written by housemate-voice-install.
+housemate_kickoff:
+  url: http://__HOSTNAME__:8765/kickoff
+  method: post
+  content_type: application/json
+  timeout: 15
+  payload: >-
+    {"text": {{ text | tojson }}, "user_id": {{ user_id | tojson }}, "notify": {{ notify | tojson }}}

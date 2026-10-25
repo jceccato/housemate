@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Install Housemate's voice kick-off into /config: the blueprint, and the
+# rest_command it calls (pointed at this add-on's hostname). Run it with the
+# user's OK (onboarding does). Safe to run again: it never overwrites a file of
+# the user's, and it does not restart anything.
+#
+#   housemate-voice-install            install what is missing
+#   exit 0  installed, or already there
+#   exit 3  configuration.yaml already has a rest_command: of its own; the
+#           message says what to merge. Nothing was changed there.
+set -o errexit -o nounset -o pipefail
+
+readonly share="/usr/share/housemate/voice"
+readonly config="/config"
+readonly blueprint_dir="${config}/blueprints/automation/housemate"
+readonly rest_file="housemate_rest_command.yaml"
+readonly include_line="rest_command: !include ${rest_file}"
+readonly api="http://supervisor"
+
+hostname=$(curl -fsS -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${api}/addons/self/info" | jq -r '.data.hostname')
+[[ -n "${hostname}" && "${hostname}" != "null" ]] || { echo "Could not read this add-on's hostname." >&2; exit 1; }
+
+mkdir -p "${blueprint_dir}"
+if [[ ! -e "${blueprint_dir}/voice_kickoff.yaml" ]]; then
+    cp "${share}/voice_kickoff.yaml" "${blueprint_dir}/voice_kickoff.yaml"
+    echo "Installed the blueprint: ${blueprint_dir}/voice_kickoff.yaml"
+else
+    echo "Blueprint already there; left alone."
+fi
+
+if [[ ! -e "${config}/${rest_file}" ]]; then
+    sed "s/__HOSTNAME__/${hostname}/" "${share}/housemate_voice_rest.yaml" > "${config}/${rest_file}"
+    echo "Wrote ${config}/${rest_file} (endpoint http://${hostname}:8765)."
+else
+    echo "${rest_file} already there; left alone."
+fi
+
+if grep -qF "${include_line}" "${config}/configuration.yaml"; then
+    echo "configuration.yaml already includes it."
+elif grep -qE '^rest_command:' "${config}/configuration.yaml"; then
+    echo "configuration.yaml already has a rest_command: of its own." >&2
+    echo "Merge the contents of ${rest_file} into it, or replace it with: ${include_line}" >&2
+    exit 3
+else
+    printf '\n# Housemate voice kick-off\n%s\n' "${include_line}" >> "${config}/configuration.yaml"
+    echo "Added to configuration.yaml: ${include_line}"
+fi
+
+check=$(curl -fsS -X POST -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" "${api}/core/api/config/core/check_config" | jq -r '.result')
+echo "Configuration check: ${check}"
+echo "Restart Home Assistant once so the new action loads; then the blueprint can be used."

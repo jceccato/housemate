@@ -49,6 +49,27 @@ media and TTS caches, and all of `.storage` except the dashboard and helper
 files; authentication and integration credentials are never tracked. Edit
 `.gitignore` to change the policy.
 
+## Voice kick-off
+
+Say "Housemate, build me ..." to Assist and a job starts in Housemate's chat.
+Your phone gets a notification that opens Housemate, a persistent notification
+appears in Home Assistant, and there is another when the job needs an answer or
+is done. A request from someone who is not a Home Assistant administrator (or
+from a voice device that cannot say who is speaking) is put in the chat and
+waits for an administrator; nothing runs until one continues it.
+
+To set it up, run `housemate-voice-install` in the panel's terminal (onboarding
+does this with your OK). It adds a blueprint, "Housemate voice kick-off", and a
+`rest_command` that posts to the add-on, and leaves a `rest_command:` of your own
+alone. Restart Home Assistant once, then create an automation from the blueprint
+and give it your phone's notify service (for example `notify.mobile_app_my_phone`).
+
+The blueprint's action talks to a small endpoint inside the add-on, on port 8765
+of the add-on's hostname, reachable from Home Assistant on its internal network.
+The port is not published on your network. The endpoint takes no password:
+anything on Home Assistant's internal network that can reach it can start a job
+as a non-administrator's request or, naming an administrator's id, as theirs.
+
 ## Protection mode
 
 Docker access is declared but stays off while the add-on's **Protection mode**

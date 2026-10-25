@@ -1,0 +1,11 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Housemate: OpenCode's own server, for the kick-off endpoint to create
+# sessions through. It listens on the loopback of this container only: nothing
+# outside the add-on can reach it. It shares OpenCode's state with the terminal
+# in the panel, so a session made here is there to continue.
+# ==============================================================================
+bashio::log.info "Starting OpenCode's server on 127.0.0.1:4096..."
+cd /config || bashio::exit.nok "Could not change directory to /config"
+exec opencode serve --hostname 127.0.0.1 --port 4096
