@@ -20,9 +20,9 @@ boot: auto
 # only the Supervisor's Ingress proxy reach the panel.
 ingress: true
 ingress_port: 1337
-# Shown in the sidebar from the first install (without it the user must switch
-# on "Show in sidebar" by hand). It is the Supervisor's ingress_panel option.
-ingress_panel: true
+# Not in the sidebar after install: ingress_panel is the user's switch ("Show in
+# sidebar" on the Info page), the Supervisor reads it from its own store and
+# ignores it here (tested on a cold install). DOCS.md says how.
 ingress_stream: true
 panel_icon: mdi:robot-happy-outline
 panel_title: Housemate (edge)
