@@ -202,6 +202,19 @@ def notify(session_id, target, title, message):
 
 # -- OpenCode -----------------------------------------------------------------------------------
 
+def wait_for_opencode(seconds=60):
+    """OpenCode may still be starting when the first request comes."""
+    deadline = time.time() + seconds
+    while True:
+        try:
+            call("GET", OPENCODE + "/global/health", timeout=5)
+            return
+        except Exception:  # noqa: BLE001
+            if time.time() > deadline:
+                raise
+            time.sleep(1)
+
+
 def create_session(title):
     return call("POST", OPENCODE + "/session", {"title": title})["id"]
 
@@ -271,8 +284,8 @@ def handle_event(event):
         what = (err.get("data") or {}).get("message") or err.get("name") or "an error"
         track(sid, busy=False)
         notify(sid, job.get("notify"), "Housemate hit a problem", f"{title}: {what.splitlines()[0][:200]}")
-    elif kind == "session.idle" and job.get("busy"):
-        track(sid, busy=False)
+    elif kind == "session.idle" and job.get("busy") and not job.get("done"):
+        track(sid, busy=False, done=True)  # told once; later turns in the chat are the admin's own
         notify(sid, job.get("notify"), "Housemate finished", f"{title}: the job is done, or waiting for you to reply.")
 
 
@@ -334,19 +347,14 @@ class Handler(BaseHTTPRequestHandler):
 
         is_admin, name = who_asked(body.get("user_id"))
         title = (body.get("title") or "Voice: " + text)[:70]
-        sid = None
-        for attempt in range(15):  # OpenCode may still be starting when the first request comes
-            try:
-                if sid is None:
-                    sid = create_session(title)
-                    # Tracked before the request is sent: its first events must not be missed.
-                    track(sid, notify=target, title=title, waiting=not is_admin, busy=False)
-                send_request(sid, text, is_admin, name)
-                break
-            except Exception as e:  # noqa: BLE001
-                log(f"could not start a session (attempt {attempt + 1}): {e}")
-                time.sleep(2)
-        else:
+        try:
+            wait_for_opencode()
+            sid = create_session(title)
+            # Tracked before the request is sent: its first events must not be missed.
+            track(sid, notify=target, title=title, waiting=not is_admin, busy=False, done=False)
+            send_request(sid, text, is_admin, name)  # once: a retry could run the job twice
+        except Exception as e:  # noqa: BLE001
+            log(f"could not start a session: {e}")
             return self.reply(502, {"error": "OpenCode did not take the request"})
         if is_admin:
             notify(sid, target, "Housemate started a job", f"{title}")
