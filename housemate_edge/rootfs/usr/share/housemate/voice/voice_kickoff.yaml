@@ -37,5 +37,11 @@ actions:
               and trigger.user_input.context.user_id
            else '' }}
       notify: !input notify_service
-  - set_conversation_response: "Okay, I've started that. I'll message you when it needs you or it is done."
+    response_variable: kickoff
+  - set_conversation_response: >-
+      {% if kickoff is defined and kickoff.status == 202 %}
+        Okay, I've started that. I'll message you when it needs you or it is done.
+      {% else %}
+        Sorry, I couldn't start that. Housemate isn't answering.
+      {% endif %}
 mode: queued

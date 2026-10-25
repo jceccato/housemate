@@ -2,7 +2,7 @@
 # shellcheck shell=bash
 # ==============================================================================
 # Housemate: the kick-off endpoint (voice jobs, update reviews), on port 8765.
-# Home Assistant Core reaches it by this add-on's hostname (ticket 17 narrows who may).
+# Home Assistant Core reaches it by this add-on's hostname.
 # ==============================================================================
 bashio::log.info "Starting the kick-off endpoint on port 8765..."
 exec python3 -u /usr/lib/housemate/kickoff.py
