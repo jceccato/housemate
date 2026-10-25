@@ -141,6 +141,18 @@ class ReviewNotify(unittest.TestCase):
             self.mod.with_review_notify(options, "notify.mobile_app_pixel"),
             {**options, "review_notify": "notify.mobile_app_pixel"})
 
+    def test_the_live_options_file_gets_the_value_and_keeps_the_rest_private(self):
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "options.json")
+            Path(path).write_text(json.dumps({"provider": "go", "api_key": "k"}))
+            os.environ["HOUSEMATE_OPTIONS"] = path
+            self.addCleanup(os.environ.pop, "HOUSEMATE_OPTIONS")
+            self.mod.write_live_option("review_notify", "notify.mobile_app_x")
+            self.assertEqual(json.loads(Path(path).read_text()),
+                             {"provider": "go", "api_key": "k", "review_notify": "notify.mobile_app_x"})
+            self.assertEqual(os.stat(path).st_mode & 0o777, 0o600)
+
     def test_something_that_is_not_a_notify_service_is_refused(self):
         for bad in ("", "light.lamp", "notify.", "notify.a b", "notify.mobile_app_x; rm"):
             with self.assertRaises(SystemExit):
