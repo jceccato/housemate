@@ -179,6 +179,7 @@ class Voice(unittest.TestCase):
         sid = reply["session_id"]
         done = self.wait_for(lambda: [c for c in self.calls_for("notify/mobile_app_test_phone", sid)
                                       if "finished" in c["data"]["title"].lower()])
+        self.assertEqual(done[0]["data"]["title"], "Housemate finished")
         self.assertEqual(done[0]["data"]["data"]["tag"], f"housemate_{sid}")
         self.assertTrue(self.calls_for("persistent_notification/create", sid))
 

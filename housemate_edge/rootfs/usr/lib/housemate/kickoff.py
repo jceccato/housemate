@@ -266,6 +266,11 @@ def handle_event(event):
     elif kind in ("permission.asked", "permission.updated"):
         what = props.get("title") or props.get("permission") or "permission to carry on"
         notify(sid, job.get("notify"), "Housemate needs you", f"{title}: asking for {what}.")
+    elif kind == "session.error":
+        err = props.get("error") or {}
+        what = (err.get("data") or {}).get("message") or err.get("name") or "an error"
+        track(sid, busy=False)
+        notify(sid, job.get("notify"), "Housemate hit a problem", f"{title}: {what.splitlines()[0][:200]}")
     elif kind == "session.idle" and job.get("busy"):
         track(sid, busy=False)
         notify(sid, job.get("notify"), "Housemate finished", f"{title}: the job is done, or waiting for you to reply.")
