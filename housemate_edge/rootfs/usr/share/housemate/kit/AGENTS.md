@@ -16,7 +16,7 @@ update with the add-on.
 - `scripts/` holds scripts to reuse. `tracker/` holds bigger work, as markdown.
 - `.opencode/skills/` holds skills you may load when the work calls for them
   (`home-assistant` for the API, `tdd`, `diagnosing-bugs`, `code-review`,
-  `writing-for-agents`, and more). `.opencode/commands/` holds commands that
+  `writing-for-agents`, `orchestrator`, and more). `.opencode/commands/` holds commands that
   only the user can start: `/grill`, `/to-spec`, `/to-tickets`, `/triage`,
   `/setup-matt-pocock-skills`.
 
@@ -55,6 +55,11 @@ update with the add-on.
 Never start a command yourself, and never act out its steps unasked. When a
 request is big enough to deserve a grilling, say so and tell the user which
 command to type (`/grill`, then `/to-spec` and `/to-tickets`); let them choose.
+
+When the user asks you to build or change something, load the `orchestrator`
+skill. It sizes the request and, for anything bigger than a quick one-off, asks
+"grill it, or yolo?": yolo you just do, grill you name `/grill` for and then work
+the tickets one at a time.
 
 ## Never
 

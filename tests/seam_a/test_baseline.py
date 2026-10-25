@@ -22,7 +22,7 @@ OPTIONS = {"provider": "zen", "api_key": ""}
 # The model may load these on its own.
 SKILLS = {
     "code-review", "writing-for-agents", "home-assistant",
-    "tdd", "diagnosing-bugs", "codebase-design", "domain-modeling", "grilling",
+    "tdd", "diagnosing-bugs", "codebase-design", "domain-modeling", "grilling", "orchestrator",
 }
 # Only the user may start these.
 COMMANDS = {"grill", "to-spec", "to-tickets", "triage", "setup-matt-pocock-skills"}
@@ -129,6 +129,14 @@ class Repository(unittest.TestCase):
         self.assertIn("github.com/mattpocock/skills", notices)
         self.assertIn("Copyright (c) 2026 Matt Pocock", notices)
         self.assertIn("MATT_SKILLS_REVISION", notices)
+
+    def test_the_orchestrator_skill_keeps_the_flow_and_carries_nothing_of_a_lab(self):
+        text = (ADDON_DIR / "rootfs/usr/share/housemate/kit/.opencode/skills/orchestrator/SKILL.md").read_text()
+        for needed in ("grill it, or yolo", "/grill", "task", "gate", "code-review", "tracker/", "Status:"):
+            self.assertIn(needed, text, needed)
+        lab = ("sidebar", "session card", "powershell", ".ps1", "scratch/", "obsidian",
+               "azure", "wayfinder", "lemondrop", "ceccato")
+        self.assertEqual([w for w in lab if w in text.lower()], [])
 
 
 class BaselineMutants(unittest.TestCase):
