@@ -90,7 +90,7 @@ def launcher_problems(addon):
 
 
 def count_opencode(addon):
-    r = addon.exec("for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null; echo; done | grep -c '^opencode --session \\|^opencode $'", check=False)
+    r = addon.exec("for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null; echo; done | grep -c '^opencode --session \\|^opencode --continue\\|^opencode $'", check=False)
     return int(r.stdout.strip() or 0)
 
 
@@ -219,8 +219,10 @@ class Panel(unittest.TestCase):
         self.assertEqual(a.exec(f"cat {POINTER}").stdout.strip(), review)
         # A pointer to a chat that no longer exists: the newest.
         a.exec(f"echo ses_gone > {POINTER}")
-        self.assertNotIn("ses_gone", the_chat_the_panel_opens(a))
-        self.assertIn("--session", the_chat_the_panel_opens(a))
+        handmade = new_session(a, "the newest of all")
+        opened = the_chat_the_panel_opens(a)
+        self.assertNotIn("ses_gone", opened)
+        self.assertIn(handmade, opened)
 
     def test_the_editor_page_carries_the_reconnect_helper(self):
         a = self.addon
@@ -229,6 +231,7 @@ class Panel(unittest.TestCase):
         status, headers, script = a.get("/_housemate/reconnect.js")
         self.assertEqual(status, 200)
         self.assertIn("location.reload()", script)
+        self.assertEqual(page.count("reconnect.js"), 1)
 
     def test_a_users_own_theme_survives_a_restart_and_an_old_file_gets_the_default_once(self):
         a = self.addon

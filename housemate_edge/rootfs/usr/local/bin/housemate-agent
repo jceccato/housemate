@@ -35,9 +35,12 @@ case "${1:-}" in
             fi
         fi
         [[ -n "${newest}" ]] || newest=$(jq -r '.[0].id // empty' <<< "${recent}" 2> /dev/null)
+        # A list that would not come (right after a restart, say) must not turn
+        # into a blank chat: trust a well-formed mark, else let OpenCode pick.
+        if [[ -z "${newest}" && -n "${marked:-}" && "${marked}" =~ ^[A-Za-z0-9_-]+$ ]]; then newest="${marked}"; fi
         # Only plain ids are used in a tmux session name.
         [[ "${newest}" =~ ^[A-Za-z0-9_-]+$ ]] || newest="none"
-        if [[ "${newest}" == "none" ]]; then cmd=(opencode); else cmd=(opencode --session "${newest}"); fi
+        if [[ "${newest}" == "none" ]]; then cmd=(opencode --continue); else cmd=(opencode --session "${newest}"); fi
         key="s-${newest}" ;;
     *) echo "usage: housemate-agent [--new | --session ID]" >&2; exit 2 ;;
 esac
