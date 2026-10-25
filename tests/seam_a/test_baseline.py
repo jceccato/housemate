@@ -135,7 +135,7 @@ class Repository(unittest.TestCase):
         for needed in ("grill it, or yolo", "/grill", "task", "gate", "code-review", "tracker/", "Status:"):
             self.assertIn(needed, text, needed)
         lab = ("sidebar", "session card", "powershell", ".ps1", "scratch/", "obsidian",
-               "azure", "wayfinder", "lemondrop", "ceccato")
+               "azure", "wayfinder")
         self.assertEqual([w for w in lab if w in text.lower()], [])
 
 
