@@ -1,0 +1,107 @@
+# Housemate (edge): code-server behind Ingress, with OpenCode in its terminal.
+# Built the way Home Assistant now builds apps: this file is the whole recipe,
+# the base is a multi-arch image, and CI supplies BUILD_ARCH (amd64|aarch64).
+#
+# To update OpenCode or code-server: change its version and both checksums
+# below (the release page lists them), bump `version` in config.yaml and add a
+# CHANGELOG.md entry. Neither updates itself at runtime.
+
+# hassio-addons Debian base, by tag and index digest.
+ARG BUILD_FROM=ghcr.io/hassio-addons/debian-base:9.5.1@sha256:4e891c053f1a0205218fe801d7f187b2c6dc01eb7f4ead83b3033a6f22cf2869
+# hadolint ignore=DL3006
+FROM ${BUILD_FROM}
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# OpenCode https://github.com/anomalyco/opencode/releases (MIT). The x64
+# *baseline* build, because the regular one needs AVX2 and a Home Assistant
+# guest may sit on a baseline virtual CPU.
+ARG OPENCODE_VERSION=1.19.4
+ARG OPENCODE_SHA256_AMD64=1697ef40558d378bd2f72efa8fafe1bed1f0e664f09247b9357556b95dbc7cbc
+ARG OPENCODE_SHA256_AARCH64=8568230ccd847dc93e95b9f6894379077d3e014a16b48040743573e77c23e85f
+
+# code-server https://github.com/coder/code-server/releases (MIT).
+ARG CODE_SERVER_VERSION=4.143.1
+ARG CODE_SERVER_SHA256_AMD64=614877cf71005f14ea252bd2d9b1c12237cf7d73681ef150f0dff7f13849fdb5
+ARG CODE_SERVER_SHA256_AARCH64=51481a891754dc2585b86d007aec24ac675453fc5ef6cfa346c4462449277384
+
+# OpenCode's editor extension, from Open VSX (MIT).
+ARG OPENCODE_EXTENSION_VERSION=1.0.0
+ARG OPENCODE_EXTENSION_SHA256=ddec815ab9a4a481b351e1ea297996688a443d9ac02cb21b7d9b423ce315e0c4
+
+ARG BUILD_ARCH
+RUN \
+    case "${BUILD_ARCH}" in \
+        amd64) \
+            opencode_asset="opencode-linux-x64-baseline.tar.gz"; \
+            opencode_sha="${OPENCODE_SHA256_AMD64}"; \
+            code_asset="code-server-${CODE_SERVER_VERSION}-linux-amd64.tar.gz"; \
+            code_sha="${CODE_SERVER_SHA256_AMD64}"; \
+            ;; \
+        aarch64) \
+            opencode_asset="opencode-linux-arm64.tar.gz"; \
+            opencode_sha="${OPENCODE_SHA256_AARCH64}"; \
+            code_asset="code-server-${CODE_SERVER_VERSION}-linux-arm64.tar.gz"; \
+            code_sha="${CODE_SERVER_SHA256_AARCH64}"; \
+            ;; \
+        *) echo "Unsupported BUILD_ARCH: '${BUILD_ARCH}'" >&2; exit 1 ;; \
+    esac \
+    \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git=1:2.47.3-0+deb13u1 \
+        less=668-1 \
+        openssh-client=1:10.0p1-7+deb13u4 \
+        unzip=6.0-29+deb13u1 \
+    \
+    && curl -fsSL --retry 5 -o /tmp/opencode.tar.gz \
+        "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/${opencode_asset}" \
+    && echo "${opencode_sha}  /tmp/opencode.tar.gz" | sha256sum -c - \
+    && tar -xzf /tmp/opencode.tar.gz -C /usr/local/bin opencode \
+    && chmod 0755 /usr/local/bin/opencode \
+    \
+    && curl -fsSL --retry 5 -o /tmp/code-server.tar.gz \
+        "https://github.com/coder/code-server/releases/download/v${CODE_SERVER_VERSION}/${code_asset}" \
+    && echo "${code_sha}  /tmp/code-server.tar.gz" | sha256sum -c - \
+    && mkdir -p /usr/local/lib/code-server \
+    && tar -xzf /tmp/code-server.tar.gz --strip-components=1 -C /usr/local/lib/code-server \
+    && ln -s /usr/local/lib/code-server/bin/code-server /usr/local/bin/code-server \
+    \
+    && curl -fsSL --retry 5 -o /tmp/opencode.vsix \
+        "https://open-vsx.org/api/sst-dev/opencode/${OPENCODE_EXTENSION_VERSION}/file/sst-dev.opencode-${OPENCODE_EXTENSION_VERSION}.vsix" \
+    && echo "${OPENCODE_EXTENSION_SHA256}  /tmp/opencode.vsix" | sha256sum -c - \
+    && ext_dir="/usr/local/lib/code-server/lib/vscode/extensions/sst-dev.opencode-${OPENCODE_EXTENSION_VERSION}" \
+    && mkdir -p /tmp/vsix "${ext_dir}" \
+    && unzip -q /tmp/opencode.vsix -d /tmp/vsix \
+    && cp -a /tmp/vsix/extension/. "${ext_dir}/" \
+    \
+    && apt-get purge -y --auto-remove unzip \
+    && rm -rf /tmp/* /var/lib/apt/lists/* /var/cache/* /var/log/*
+
+# Where the add-on keeps its state. Everything below /data survives restarts
+# and updates. These are set in the services too; here so that a shell opened
+# any other way (docker exec, an s6 oneshot) sees the same places.
+ENV \
+    XDG_CONFIG_HOME=/data/opencode/config \
+    XDG_DATA_HOME=/data/opencode/data \
+    XDG_STATE_HOME=/data/opencode/state \
+    XDG_CACHE_HOME=/data/opencode/cache \
+    OPENCODE_DISABLE_AUTOUPDATE=true
+
+COPY rootfs /
+
+# code-server's own health endpoint, on the Ingress port.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
+    CMD curl --fail --silent http://127.0.0.1:1337/healthz || exit 1
+
+ARG BUILD_VERSION
+LABEL \
+    io.hass.name="Housemate (edge)" \
+    io.hass.description="An agent in the sidebar that builds Home Assistant with you" \
+    io.hass.type="addon" \
+    io.hass.version="${BUILD_VERSION}" \
+    org.opencontainers.image.title="Housemate (edge)" \
+    org.opencontainers.image.description="An agent in the sidebar that builds Home Assistant with you" \
+    org.opencontainers.image.licenses="MIT" \
+    org.opencontainers.image.source="https://github.com/jceccato/housemate" \
+    org.opencontainers.image.version="${BUILD_VERSION}"

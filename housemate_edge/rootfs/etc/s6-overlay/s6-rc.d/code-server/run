@@ -1,0 +1,22 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Housemate: run code-server behind Ingress, with /config as the workspace.
+# ==============================================================================
+readonly workspace="/config"
+
+bashio::log.info "Starting code-server..."
+
+# No code-server login: Home Assistant's Ingress is the sign-in, and the panel
+# is admin-only. Nothing is published on the network.
+cd "${workspace}" || bashio::exit.nok "Could not change directory to ${workspace}"
+exec code-server \
+    --bind-addr 0.0.0.0:1337 \
+    --auth none \
+    --config /data/code-server/config.yaml \
+    --user-data-dir /data/code-server \
+    --extensions-dir /data/code-server/extensions \
+    --disable-telemetry \
+    --disable-update-check \
+    --disable-workspace-trust \
+    "${workspace}"

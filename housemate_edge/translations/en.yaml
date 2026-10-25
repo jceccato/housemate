@@ -1,0 +1,7 @@
+configuration:
+  provider:
+    name: Model provider
+    description: go for OpenCode Go, zen for OpenCode Zen.
+  api_key:
+    name: API key
+    description: Your OpenCode key. Written to OpenCode's provider configuration at start and kept nowhere else.

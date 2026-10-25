@@ -1,0 +1,108 @@
+name: Publish edge
+
+# Every merge to main that touches the edge add-on builds both architectures
+# and pushes the image tagged with the add-on's version. An image is pushed
+# before the version that names it, and a tag is never overwritten: if the
+# version's tag already exists, nothing is pushed (bump the version).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "housemate_edge/**"
+      - "tests/**"
+      - ".github/workflows/**"
+  workflow_dispatch:
+
+env:
+  ARCHITECTURES: '["amd64", "aarch64"]'
+  IMAGE_NAME: housemate-edge
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-edge
+  cancel-in-progress: false
+
+jobs:
+  # The test gate. A failed suite skips every job below it: nothing logs in,
+  # builds for release or pushes.
+  test:
+    uses: ./.github/workflows/tests.yml
+    permissions:
+      contents: read
+
+  init:
+    name: Read the version
+    needs: test
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Read the add-on's version and check its changelog entry
+        id: version
+        run: |
+          version=$(sed -n 's/^version: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' housemate_edge/config.yaml | head -1)
+          [[ -n "$version" ]] || { echo "::error::no version in housemate_edge/config.yaml"; exit 1; }
+          grep -qx "## $version" housemate_edge/CHANGELOG.md \
+            || { echo "::error::housemate_edge/CHANGELOG.md has no '## $version' entry"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Get build matrix
+        id: matrix
+        uses: home-assistant/builder/actions/prepare-multi-arch-matrix@7412f0023ea9b6e58e8bb5059f1660f51376f49a # 2026.09.0
+        with:
+          architectures: ${{ env.ARCHITECTURES }}
+          image-name: ${{ env.IMAGE_NAME }}
+
+  build:
+    name: Build ${{ matrix.arch }} image
+    needs: init
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+      id-token: write # Cosign signing
+      packages: write # push to GitHub Container Registry
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.init.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Build and push the image
+        uses: home-assistant/builder/actions/build-image@7412f0023ea9b6e58e8bb5059f1660f51376f49a # 2026.09.0
+        with:
+          arch: ${{ matrix.arch }}
+          context: housemate_edge
+          image: ${{ matrix.image }}
+          image-tags: ${{ needs.init.outputs.version }}
+          version: ${{ needs.init.outputs.version }}
+          push: "true"
+          skip-existing: ${{ needs.init.outputs.version }}
+          cache-gha-scope: housemate-edge
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  manifest:
+    name: Publish the multi-arch manifest
+    needs: [init, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+      packages: write
+    steps:
+      - name: Publish the manifest
+        uses: home-assistant/builder/actions/publish-multi-arch-manifest@7412f0023ea9b6e58e8bb5059f1660f51376f49a # 2026.09.0
+        with:
+          architectures: ${{ env.ARCHITECTURES }}
+          image-name: ${{ env.IMAGE_NAME }}
+          image-tags: ${{ needs.init.outputs.version }}
+          skip-existing: ${{ needs.init.outputs.version }}
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,38 @@
+name: Housemate (edge)
+version: 0.1.0
+slug: housemate_edge
+description: The newest Housemate build, for testers. An agent in the sidebar that builds Home Assistant with you.
+url: https://github.com/jceccato/housemate
+# The Supervisor pulls the image tagged with `version`. There is no `latest`,
+# and an image is pushed before the version that names it.
+image: ghcr.io/jceccato/housemate-edge
+arch:
+  - aarch64
+  - amd64
+init: false
+startup: services
+boot: auto
+# The panel: code-server behind Ingress, for administrators only. No `ports:`
+# key on purpose, so nothing is published on the network.
+ingress: true
+ingress_port: 1337
+ingress_stream: true
+panel_icon: mdi:robot-happy-outline
+panel_title: Housemate
+panel_admin: true
+# Home Assistant's REST API and the Supervisor API (manager role).
+homeassistant_api: true
+hassio_api: true
+hassio_role: manager
+# Declared, but the Supervisor withholds it until protection mode is turned off.
+docker_api: true
+map:
+  - type: homeassistant_config
+    read_only: false
+    path: /config
+options:
+  provider: go
+  api_key: ""
+schema:
+  provider: list(go|zen)
+  api_key: password?

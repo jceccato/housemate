@@ -1,0 +1,61 @@
+name: Tests
+
+# Two triggers and no more, as in the publish workflow's prior art (tv-taplist):
+#
+#   pull_request   the suite runs on every pull request, so a red build is seen
+#                  before a merge, not after an image has been published.
+#   workflow_call  publish-edge.yml calls this same definition as its gate, so
+#                  the check on a pull request and the gate on a publish
+#                  cannot drift apart.
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  seam-a:
+    # Seam A: build the image, start it the way the Supervisor would (fixture
+    # /config, /data and options; a stand-in Supervisor API), and assert what
+    # a user would see. Each architecture runs natively on its own runner.
+    name: Seam A (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            os: ubuntu-24.04
+          - arch: aarch64
+            os: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+
+      - name: Build the image
+        uses: home-assistant/builder/actions/build-image@7412f0023ea9b6e58e8bb5059f1660f51376f49a # 2026.09.0
+        with:
+          arch: ${{ matrix.arch }}
+          context: housemate_edge
+          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-housemate-edge
+          image-tags: ci
+          version: ci
+          load: "true"
+          push: "false"
+          cosign: "false"
+          cache-gha-scope: housemate-edge
+          container-registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install the test dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet pyyaml
+
+      - name: Run Seam A
+        env:
+          HOUSEMATE_IMAGE: ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-housemate-edge:ci
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" -m unittest discover -s tests/seam_a -v

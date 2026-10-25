@@ -1,0 +1,26 @@
+{
+  "telemetry.telemetryLevel": "off",
+  "update.mode": "none",
+  "extensions.autoUpdate": false,
+  "extensions.autoCheckUpdates": false,
+  "workbench.startupEditor": "none",
+  "security.workspace.trust.enabled": false,
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.storage": true,
+    "**/*.db-shm": true,
+    "**/*.db-wal": true,
+    "**/*.db": true,
+    "**/*.log": true
+  },
+  "yaml.customTags": [
+    "!env_var scalar",
+    "!include_dir_list scalar",
+    "!include_dir_merge_list scalar",
+    "!include_dir_merge_named scalar",
+    "!include_dir_named scalar",
+    "!include scalar",
+    "!secret scalar"
+  ]
+}

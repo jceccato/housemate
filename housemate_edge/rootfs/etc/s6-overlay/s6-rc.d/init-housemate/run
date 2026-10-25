@@ -1,0 +1,63 @@
+#!/command/with-contenv bashio
+# shellcheck shell=bash
+# ==============================================================================
+# Housemate: prepare the add-on's state and write OpenCode's provider config.
+#
+# The key is read by jq straight from the options file into OpenCode's config:
+# it is never put in a shell variable, an argument, an environment variable or
+# a log line.
+# ==============================================================================
+set -o errexit -o nounset -o pipefail
+
+readonly options="/data/options.json"
+readonly config_dir="${XDG_CONFIG_HOME}/opencode"
+readonly config_file="${config_dir}/opencode.json"
+
+umask 077
+mkdir -p \
+    "${config_dir}" \
+    "${XDG_DATA_HOME}" \
+    "${XDG_STATE_HOME}" \
+    "${XDG_CACHE_HOME}" \
+    /data/code-server/extensions \
+    /data/code-server/User
+
+# Built-in rules: part of the image, replaced on every start so that they
+# update with every release. The user's own AGENTS.md lives in /config.
+cp /usr/share/housemate/AGENTS.md "${config_dir}/AGENTS.md"
+
+# code-server's first-start settings; after that they are the user's.
+if [[ ! -f /data/code-server/User/settings.json ]]; then
+    cp /usr/share/housemate/code-server-settings.json /data/code-server/User/settings.json
+fi
+
+provider=$(jq -r '.provider // "go"' "${options}")
+case "${provider}" in
+    go) provider_id="opencode-go" ;;
+    zen) provider_id="opencode" ;;
+    *) bashio::exit.nok "Unknown provider '${provider}': choose go or zen." ;;
+esac
+
+# OpenCode's provider config. With no key, only the provider is selected.
+jq --arg id "${provider_id}" '
+    {
+        "$schema": "https://opencode.ai/config.json",
+        autoupdate: false,
+        enabled_providers: [$id]
+    }
+    + (if ((.api_key // "") | length) > 0
+        then {provider: {($id): {options: {apiKey: .api_key}}}}
+        else {} end)
+' "${options}" > "${config_file}.tmp"
+chmod 600 "${config_file}.tmp"
+mv "${config_file}.tmp" "${config_file}"
+
+# bashio keeps a copy of the options (the key among them) in /tmp while the
+# base image's own steps read them. Nothing needs it after that: remove it.
+rm -rf /tmp/.bashio
+
+if jq -e '(.api_key // "") | length > 0' "${options}" > /dev/null; then
+    bashio::log.info "OpenCode provider '${provider_id}' configured with a key."
+else
+    bashio::log.warning "OpenCode provider '${provider_id}' has no key; set one in the Configuration tab."
+fi
