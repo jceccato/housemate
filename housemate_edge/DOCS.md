@@ -52,8 +52,8 @@ ones the agent loads when the work calls for them: `orchestrator`, `tdd`,
 `diagnosing-bugs`, `code-review`, `home-assistant` and a few more. **Commands**
 are steps only you start, by typing them in OpenCode's chat: `/grill` (the agent
 interviews you about a plan), `/to-spec` (writes it up), `/to-tickets` (cuts it
-into tickets), `/triage` and `/setup-matt-pocock-skills` (for a GitHub Issues
-tracker). The agent never starts one for you.
+into tickets), `/triage` (sorts tickets) and `/setup-matt-pocock-skills` (for a GitHub
+Issues tracker). The agent never starts one for you.
 
 **Grill or yolo.** Ask for something and the agent judges whether it is a quick
 one-off or a bigger job. A small thing it just does. For a bigger one it asks
