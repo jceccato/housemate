@@ -20,7 +20,8 @@ mkdir -p \
     "${XDG_STATE_HOME}" \
     "${XDG_CACHE_HOME}" \
     /data/code-server/extensions \
-    /data/code-server/User
+    /data/code-server/User \
+    /data/code-server/Machine
 
 # Built-in rules: part of the image, replaced on every start so that they
 # update with every release. The user's own AGENTS.md lives in /config.
@@ -38,6 +39,37 @@ done
 # code-server's first-start settings; after that they are the user's.
 if [[ ! -f /data/code-server/User/settings.json ]]; then
     cp /usr/share/housemate/code-server-settings.json /data/code-server/User/settings.json
+elif ! grep -q 'workbench.colorTheme' /data/code-server/User/settings.json \
+    && jq -e . /data/code-server/User/settings.json > /dev/null 2>&1; then
+    # An add-on from before the dark default: a settings file that never named a
+    # theme gets the default once. A theme the user has chosen is never touched.
+    jq '. + {"workbench.colorTheme": "Dark Modern"}' /data/code-server/User/settings.json > /data/code-server/User/settings.json.tmp \
+        && mv /data/code-server/User/settings.json.tmp /data/code-server/User/settings.json
+fi
+
+# code-server's machine settings: the add-on's own defaults (VS Code's built-in
+# chat hidden, so that Housemate's agent is the only one on screen). They sit
+# above the user's settings.json, are replaced on every start and so update with
+# every release; the user's file is left alone.
+cp /usr/share/housemate/code-server-machine-settings.json /data/code-server/Machine/settings.json
+
+# The sidebar entry: config.yaml's ingress_panel is ignored by the Supervisor, so
+# on the very first start the add-on switches its own panel on through the
+# Supervisor API, and records that under /data. After that it never touches the
+# setting again: a user who hides the panel keeps their choice. If the call
+# fails nothing is recorded, and the next start tries again.
+readonly sidebar_done="/data/.housemate-sidebar-done"
+if [[ ! -e "${sidebar_done}" ]]; then
+    if curl -fsS --max-time 20 -X POST \
+        -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d '{"ingress_panel": true}' \
+        http://supervisor/addons/self/options > /dev/null; then
+        touch "${sidebar_done}"
+        bashio::log.info "Housemate is now shown in the sidebar (switch it off on the add-on's Info page if you prefer)."
+    else
+        bashio::log.warning "Could not show Housemate in the sidebar; it will try again at the next start."
+    fi
 fi
 
 # The starter kit: copied into /config on the very first start only.
@@ -48,17 +80,27 @@ fi
 
 provider=$(jq -r '.provider // "go"' "${options}")
 case "${provider}" in
-    go) provider_id="opencode-go" ;;
-    zen) provider_id="opencode" ;;
+    go) provider_id="opencode-go"; default_model="opencode-go/deepseek-v4.1-flash" ;;
+    zen) provider_id="opencode"; default_model="opencode/deepseek-v4.1-flash-free" ;;
     *) bashio::exit.nok "Unknown provider '${provider}': choose go or zen." ;;
 esac
 
 # OpenCode's provider config. With no key, only the provider is selected.
-jq --arg id "${provider_id}" '
+# The permission lets OpenCode read the add-on's own files (the built-in rules,
+# skills and the kit's how-tos under /usr/share/housemate) without asking, because
+# they lie outside the /config workspace. Nothing else is widened: writes keep
+# their defaults.
+jq --arg id "${provider_id}" --arg default_model "${default_model}" '
     {
         "$schema": "https://opencode.ai/config.json",
         autoupdate: false,
-        enabled_providers: [$id]
+        enabled_providers: [$id],
+        model: (if ((.model // "") | length) > 0 then .model else $default_model end),
+        permission: {
+            external_directory: {
+                "/usr/share/housemate/**": "allow"
+            }
+        }
     }
     + (if ((.api_key // "") | length) > 0
         then {provider: {($id): {options: {apiKey: .api_key}}}}

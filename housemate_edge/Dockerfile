@@ -66,6 +66,7 @@ RUN \
         libpython3-stdlib=3.13.5-1 \
         libpython3.13-stdlib=3.13.5-2+deb13u5 \
         libpython3.13-minimal=3.13.5-2+deb13u5 \
+        tmux=3.5a-3 \
         unzip=6.0-29+deb13u1 \
     \
     && curl -fsSL --retry 5 -o /tmp/opencode.tar.gz \
