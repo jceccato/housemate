@@ -43,7 +43,7 @@ elif ! grep -q 'workbench.colorTheme' /data/code-server/User/settings.json \
     && jq -e . /data/code-server/User/settings.json > /dev/null 2>&1; then
     # An add-on from before the dark default: a settings file that never named a
     # theme gets the default once. A theme the user has chosen is never touched.
-    jq '. + {"workbench.colorTheme": "Dark Modern"}' /data/code-server/User/settings.json > /data/code-server/User/settings.json.tmp \
+    jq '. + {"workbench.colorTheme": "Default Dark Modern"}' /data/code-server/User/settings.json > /data/code-server/User/settings.json.tmp \
         && mv /data/code-server/User/settings.json.tmp /data/code-server/User/settings.json
 fi
 

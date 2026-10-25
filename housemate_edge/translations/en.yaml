@@ -7,7 +7,7 @@ configuration:
     description: Your OpenCode key. Written to OpenCode's provider configuration at start; not logged and not placed in your /config.
   model:
     name: Model
-    description: Optional. A model as provider/model (for example opencode-go/deepseek-v4.1-flash). Leave empty for the provider's default (Go - deepseek-v4.1-flash; Zen - a free model).
+    description: Optional. A model as provider/model (for example opencode-go/deepseek-v4.1-flash). Leave empty for the provider's default (Go - opencode-go/deepseek-v4.1-flash; Zen - a free model).
   review_notify:
     name: Phone to notify for the daily update review
     description: The notify service of the phone (for example notify.mobile_app_my_phone). Leave empty to get the persistent notification in Home Assistant only.

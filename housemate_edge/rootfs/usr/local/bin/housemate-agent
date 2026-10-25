@@ -22,7 +22,7 @@ case "${1:-}" in
         key="s-${id}"; cmd=(opencode --session "${id}") ;;
     "")
         newest=$(opencode session list --format json -n 1 2> /dev/null | jq -r '.[0].id // empty' 2> /dev/null)
-        # Only plain ids are used in a file name.
+        # Only plain ids are used in a tmux session name.
         [[ "${newest}" =~ ^[A-Za-z0-9_-]+$ ]] || newest="none"
         key="s-${newest}"; cmd=(opencode --continue) ;;
     *) echo "usage: housemate-agent [--new | --session ID]" >&2; exit 2 ;;

@@ -6,20 +6,15 @@
 // It also adds two commands (and status bar buttons) so that a person need not
 // know OpenCode's own: start a new chat, and choose another recent one.
 //
-// Plain JavaScript with no dependencies; the logic that can be tested without
-// an editor is in pure functions at the top, and tests/launcher runs them.
+// Plain JavaScript with no dependencies. The terminal runs housemate-agent
+// (OpenCode in a tmux session of its own), which is what keeps it to one
+// instance; tests/seam_a/test_panel.py drives this file in the editor's node.
 
 const NAME = "OpenCode";
 const CWD = "/config";
 // How long to wait for a restored terminal to show up before deciding there is
 // none: after a reload the editor revives the previous tab a moment later.
 const SETTLE_MS = 2500;
-
-// The terminal runs housemate-agent (OpenCode under dtach: one instance, kept
-// alive when the tab closes). `args` are its arguments.
-function shellArgsFor(args) {
-  return args;
-}
 
 // OpenCode's `session list --format json`: newest first, as items for a pick list.
 function sessionItems(json) {
@@ -51,21 +46,21 @@ function activate(context) {
       name: NAME,
       cwd: CWD,
       shellPath: "/usr/local/bin/housemate-agent",
-      shellArgs: shellArgsFor(openCodeArgs),
+      shellArgs: openCodeArgs,
       location: { viewColumn: vscode.ViewColumn.Active },
       isTransient: false,
     });
 
   const closeBottomPanel = () => vscode.commands.executeCommand("workbench.action.closePanel");
 
-  async function openAgent() {
+  function openAgent() {
     const existing = findOpenCode(vscode.window.terminals);
     if (existing) { existing.show(); return; }
     open([]).show();
     closeBottomPanel();
   }
 
-  async function newChat() {
+  function newChat() {
     // A new chat is a new tab beside the one running; the old one stays.
     open(["--new"]).show();
   }
@@ -104,4 +99,4 @@ function activate(context) {
 
 function deactivate() {}
 
-module.exports = { activate, deactivate, shellArgsFor, sessionItems, findOpenCode, NAME };
+module.exports = { activate, deactivate };

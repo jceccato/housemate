@@ -8,6 +8,7 @@ shows OpenCode in the editor area is looked at in a browser on the test VM.
 """
 
 import json
+import time
 import unittest
 
 from harness import AddOn, docker
@@ -51,7 +52,7 @@ def machine_settings_problems(addon):
     if machine.get("workbench.secondarySideBar.defaultVisibility") != "hidden":
         found.append("the secondary sidebar is not hidden")
     user = json.loads(addon.read_data("code-server/User/settings.json"))
-    if user.get("workbench.colorTheme") != "Dark Modern":
+    if user.get("workbench.colorTheme") != "Default Dark Modern":
         found.append("the default theme is not dark")
     return found
 
@@ -96,17 +97,22 @@ def open_panel(addon, *args):
     docker("exec", "-t", addon.name, "timeout", "6", AGENT, *args, check=False)
 
 
+def sessions(addon):
+    return addon.exec("tmux -L housemate list-sessions -F '#{session_name}' 2>/dev/null; true").stdout.split()
+
+
 def single_launcher_problems(addon):
     found = []
-    open_panel(addon)
-    open_panel(addon)
-    open_panel(addon)
-    if count_opencode(addon) != 1:
-        found.append(f"{count_opencode(addon)} OpenCode processes after three opens")
+    for _ in range(3):
+        open_panel(addon)
+    # OpenCode starts a moment after its tmux session: let every start settle.
+    time.sleep(8)
+    chats = sessions(addon)
+    if len(chats) != 1 or count_opencode(addon) != 1:
+        found.append(f"three opens left {len(chats)} sessions and {count_opencode(addon)} OpenCode processes")
     open_panel(addon, "--new")
-    r = addon.exec("tmux -L housemate list-sessions | wc -l")
-    if r.stdout.strip() != "2":
-        found.append(f"a new chat did not get its own tab ({r.stdout.strip()} sessions)")
+    if len(sessions(addon)) != 2:
+        found.append(f"a new chat did not get its own tab ({sessions(addon)})")
     return found
 
 
@@ -164,7 +170,7 @@ class Panel(unittest.TestCase):
         a.exec("echo '{\"editor.fontSize\": 15}' > /data/code-server/User/settings.json")
         a.restart()
         got = json.loads(a.read_data("code-server/User/settings.json"))
-        self.assertEqual(got, {"editor.fontSize": 15, "workbench.colorTheme": "Dark Modern"})
+        self.assertEqual(got, {"editor.fontSize": 15, "workbench.colorTheme": "Default Dark Modern"})
 
 
 class Models(unittest.TestCase):
