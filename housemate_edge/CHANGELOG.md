@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.16
+
+- Onboarding: build the first automation in its own package and verify it; wait out the restart
+- Add onboarding: a built-in skill, a first-open rule, and a scan that seeds the cheat sheet
+
 ## 0.1.15
 
 - Reach the panel only through Ingress and the voice endpoint only from Core (#16)
