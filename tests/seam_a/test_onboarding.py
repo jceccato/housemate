@@ -95,6 +95,7 @@ class Onboarding(unittest.TestCase):
         sent = [c for c in calls if c["service"] == "addons/self/options"][-1]["data"]["options"]
         self.assertEqual(sent["review_notify"], "notify.mobile_app_test_phone")
         self.assertEqual(sent["provider"], "zen")
+        self.assertIn("phone: done - notify.mobile_app_test_phone", self.sh("housemate-onboarding status").stdout)
 
     def test_progress_is_kept_out_of_git(self):
         self.sh("housemate-onboarding step git done 'tracked'")

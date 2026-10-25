@@ -134,9 +134,13 @@ nothing is printed); the review needs no restart of Home Assistant, and says at
 housemate-onboarding review-notify notify.mobile_app_<name>
 ```
 
+**Run it** (a model once said it had and had not). It also marks the step done,
+so do not run `step phone done` yourself, and only say the review is set up once
+the command has printed that it will notify the phone.
+
 Keep the service name (`notify.mobile_app_<name>`) in `memory/phone-to-notify.md`
 (one fact, with a line in `memory/MEMORY.md`), because the voice step and the
-update review use it. Mark the step done.
+update review use it. Keep the step done as the command left it.
 
 ## 5. A private copy, and issues  (`remote`)
 
