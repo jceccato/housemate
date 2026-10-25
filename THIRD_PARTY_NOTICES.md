@@ -45,8 +45,9 @@ should start (`/grill`, `/to-spec`, `/to-tickets`, `/triage`,
 [mattpocock/skills](https://github.com/mattpocock/skills), at the commit pinned
 as `MATT_SKILLS_REVISION` in `housemate_edge/Dockerfile`, and adapted for
 OpenCode and for the local tracker (`housemate_edge/build/vendor_skills.py`).
-The kit's `code-review` and `writing-for-agents` skills began as this lab's own
-and the same repository's, made generic; they carry the same notice.
+The kit's `code-review` and `writing-for-agents` skills began as the maintainer's
+own, themselves adapted from the same repository, and are made generic; the same
+notice covers them.
 They are copied into the user's `/config` with the licence below, which is also
 kept in `.opencode/support/mattpocock-skills/LICENSE` there. Its licence, with
 its copyright notice:

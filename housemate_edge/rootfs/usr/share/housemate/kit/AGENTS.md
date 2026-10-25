@@ -74,5 +74,6 @@ The five canonical labels, unchanged. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See
+Single-context: a `GLOSSARY.md` and `docs/adr/`, created when the first term or
+decision is settled. See
 `docs/agents/domain.md`.
