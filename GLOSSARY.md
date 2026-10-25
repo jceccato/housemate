@@ -9,7 +9,7 @@ does not edit them, and they never arrive as **incoming**. _Avoid_: "system
 prompt", "default rules".
 
 **Built-in skill**
-A skill shipped in the image (today `incoming-review`) and replaced on every
+A skill shipped in the image (`incoming-review`, `update-review`) and replaced on every
 start, like the **built-in rules**, so it works whatever the user has done to
 their own kit. Not part of the **kit**.
 
@@ -36,12 +36,20 @@ The small endpoint inside the add-on (port 8765) that
 Home Assistant calls to start a **job**. A request from a non-administrator is
 put in the chat and waits for an administrator. It answers only Home Assistant
 Core (the Supervisor network's gateway, 172.30.32.1) and the add-on itself, because
-it takes no credential and believes the user id in the request.
+it takes no credential and believes the user id in the request. With `prepare` it only puts a briefed chat in place and runs
+nothing (the **update review** uses it).
 
 **Ingress proxy**
 The Supervisor (172.30.32.2), which signs you in to Home Assistant and relays the
 panel. nginx inside the add-on lets in only it, so no other add-on reaches
 code-server.
+
+**Update review**
+The one notification a day that summarises everything waiting (Core, OS,
+Supervisor, add-ons, HACS, Housemate, incoming kit changes), and the **prepared**
+chat "Update review" its Review link opens: briefed, nothing run, until the person
+says go. The agent then follows the `update-review` skill, with two approvals
+(install, restart).
 
 **Kit**
 The generic starter set copied into the user's `/config` once, when the add-on first starts:

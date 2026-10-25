@@ -112,8 +112,10 @@ def panel_url():
 def service(domain, name, data):
     try:
         call("POST", f"{CORE}/api/services/{domain}/{name}", data, token=supervisor_token())
+        return True
     except Exception as e:  # noqa: BLE001
         log(f"{domain}.{name} failed: {e}")
+        return False
 
 
 def websocket_call(message):

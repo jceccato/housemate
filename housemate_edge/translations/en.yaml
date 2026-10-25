@@ -7,7 +7,7 @@ configuration:
     description: Your OpenCode key. Written to OpenCode's provider configuration at start; not logged and not placed in your /config.
   review_notify:
     name: Phone to notify for the daily update review
-    description: The notify service of the phone (for example notify.mobile_app_my_phone). Leave empty to get the persistent notification in Home Assistant only. Onboarding sets this.
+    description: The notify service of the phone (for example notify.mobile_app_my_phone). Leave empty to get the persistent notification in Home Assistant only.
   review_time:
     name: Time of the daily update review
     description: When the one daily summary of waiting updates is sent, as HH:MM in Home Assistant's time zone.

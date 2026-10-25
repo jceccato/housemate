@@ -76,7 +76,7 @@ class Review(unittest.TestCase):
         cls.addon.stop()
 
     def run_daily(self):
-        out = self.addon.exec("housemate-updates daily --now").stdout
+        out = self.addon.exec("housemate-updates daily").stdout
         return json.loads(out)
 
     def calls(self, service):
