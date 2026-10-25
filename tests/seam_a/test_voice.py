@@ -68,6 +68,7 @@ class Voice(unittest.TestCase):
         cls.addon = VoiceAddOn({"provider": "zen", "api_key": "hm-test-key-0123456789abcdef"}, {"configuration.yaml": "homeassistant:\n"})
         cls.addon.start()
         cls.wait_endpoint()
+        cls.warm_up()
 
     @classmethod
     def tearDownClass(cls):
@@ -79,6 +80,29 @@ class Voice(unittest.TestCase):
     def client(cls, *args, timeout=60):
         """Run busybox on the add-on's network: Core's position, not the host's."""
         return docker("run", "--rm", "--network", cls.addon.network, STUB_IMAGE, *args, timeout=timeout, check=False)
+
+    @classmethod
+    def warm_up(cls, timeout=300):
+        """OpenCode's first model call fetches its provider package: do that before timing anything."""
+        a = cls.addon
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            r = a.exec("curl -s -m 5 -XPOST localhost:4096/session -H 'content-type: application/json' -d '{\"title\":\"warm\"}'", check=False)
+            if r.stdout.startswith("{"):
+                sid = json.loads(r.stdout)["id"]
+                break
+            time.sleep(2)
+        else:
+            raise RuntimeError("OpenCode's server never answered:\n" + a.logs())
+        a.exec(f"curl -s -m 5 -XPOST localhost:4096/session/{sid}/prompt_async -H 'content-type: application/json' "
+               "-d '{\"parts\":[{\"type\":\"text\",\"text\":\"hello\"}]}'")
+        while time.time() < deadline:
+            msgs = json.loads(a.exec(f"curl -s -m 5 localhost:4096/session/{sid}/message").stdout or "[]")
+            if any(m["info"]["role"] == "assistant" and m["info"].get("time", {}).get("completed") for m in msgs):
+                return
+            time.sleep(2)
+        raise RuntimeError("OpenCode never completed a first model call:\n" + a.logs()[-3000:]
+                           + "\n" + json.dumps(msgs)[:3000])
 
     @classmethod
     def wait_endpoint(cls, timeout=60):
