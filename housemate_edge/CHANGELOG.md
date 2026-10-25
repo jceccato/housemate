@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.21
+
+- Onboarding: the review-notify command marks the phone step done
+
 ## 0.1.20
 
 - Onboarding: the phone step also sets review_notify for the daily update review
