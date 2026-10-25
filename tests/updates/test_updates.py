@@ -80,6 +80,12 @@ class Pending(unittest.TestCase):
         self.assertTrue(found[0]["prerelease"])
         self.assertFalse(self.found[0]["prerelease"])
 
+    def test_a_commit_hash_ending_in_b_is_not_a_prerelease(self):
+        for stable in ("2026.10.4", "6.5.1", "v1.2.3", "3f9a1b", "0.1.12"):
+            self.assertFalse(updates.is_prerelease(stable), stable)
+        for pre in ("2026.11.0b2", "1.2.0-rc1", "3.0.dev1", "1.0.0a1"):
+            self.assertTrue(updates.is_prerelease(pre), pre)
+
 
 class Summary(unittest.TestCase):
     def setUp(self):

@@ -4,7 +4,7 @@ the update-review skill drives.
 
     housemate-updates list                what is waiting, in the order to install it
     housemate-updates summary             the daily summary, as it would be sent (read-only)
-    housemate-updates daily [--now]       send the summary and prepare the briefed session
+    housemate-updates daily               send the summary and prepare the briefed session
     housemate-updates serve               run `daily` once a day (the add-on's service)
     housemate-updates surface             what in this house release notes can touch (names only)
     housemate-updates notes               release notes between installed and target, per update
@@ -12,6 +12,7 @@ the update-review skill drives.
     housemate-updates baseline [--out F]  versions, Repairs, error signatures, counts
     housemate-updates backup              one full backup, named pre-updates-<date>, checked
     housemate-updates install ID          install one update and wait for it to land
+    housemate-updates restart-core        configuration check, then one Core restart (for HACS)
     housemate-updates reboot              reboot the host (after an OS update)
     housemate-updates health --baseline F compare now with a baseline
     housemate-updates status              what this review has done so far today
@@ -21,6 +22,7 @@ talk to Home Assistant. Standard library only. The Supervisor token is in the
 environment and goes to the Supervisor, nowhere else.
 """
 
+import glob
 import hashlib
 import html
 import json
@@ -71,6 +73,11 @@ def classify(entity_id, platform, own_slug, slug):
     return "other"  # device firmware, other servers' versions: listed, never updated
 
 
+def is_prerelease(version):
+    """2026.11.0b2, 1.2.0-rc1, 3.0.dev1: yes. A commit hash that happens to end in 'b': no."""
+    return bool(re.fullmatch(r"(?i)v?\d+(\.\d+)*[.-]?(a|b|rc|alpha|beta|dev|pr)[.-]?\d*", str(version)))
+
+
 def pending_from(states, registry, own_slug):
     out = []
     for s in states:
@@ -88,7 +95,7 @@ def pending_from(states, registry, own_slug):
             "title": a.get("title") or a.get("friendly_name") or eid,
             "installed": a.get("installed_version"), "latest": a.get("latest_version"),
             "release_url": a.get("release_url"),
-            "prerelease": bool(re.search(r"(?i)(\d|-|\.)(a|b|rc|alpha|beta|dev|pr)\.?\d*$", latest)),
+            "prerelease": is_prerelease(latest),
         })
     out.sort(key=lambda u: (ORDER[u["kind"]], 0 if u["slug"] in DATABASE_ADDONS else 1, u["title"].lower()))
     return out
@@ -268,7 +275,7 @@ def token():
 
 def http(url, method="GET", data=None, timeout=60, raw=False, headers=None, auth=True):
     hdr = {"User-Agent": USER_AGENT}
-    if auth:
+    if auth and url.startswith(SUP):  # the token goes to the Supervisor only, whatever a redirect says
         hdr["Authorization"] = "Bearer " + token()
     if data is not None:
         hdr["Content-Type"] = "application/json"
@@ -382,7 +389,6 @@ def surface():
     integrations = sorted({e["domain"] for e in entries})
     yaml_keys, custom = set(), []
     for pattern in ("/config/*.yaml", "/config/packages/*.yaml", "/config/packages/**/*.yaml"):
-        import glob
         for path in glob.glob(pattern, recursive=True):
             if os.path.basename(path) == "secrets.yaml":
                 continue
@@ -466,9 +472,13 @@ def backup(timeout=1800):
         made = [b for b in sup("/backups")["backups"] if b["slug"] not in before and b.get("name") == name]
         if made:
             info = sup(f"/backups/{made[0]['slug']}/info")
-            ok = info.get("type") == "full" and bool(info.get("homeassistant")) and (info.get("size_bytes") or info.get("size") or 0) > 0
+            included = {a["slug"] for a in info.get("addons", [])}
+            installed = {a["slug"] for a in sup("/addons")["addons"]}
+            missing = sorted((installed & DATABASE_ADDONS) - included)
+            ok = info.get("type") == "full" and bool(info.get("homeassistant")) and (info.get("size") or 0) > 0 and not missing
             return {"ok": ok, "name": name, "slug": info["slug"], "size_mb": info.get("size"),
-                    "addons": len(info.get("addons", [])), "type": info.get("type")}
+                    "addons": len(included), "type": info.get("type"), "database_addons_missing": missing,
+                    "locations": info.get("locations") or [info.get("location")]}
         time.sleep(5)
     return {"ok": False, "name": name, "error": "the backup did not appear in time"}
 
@@ -494,9 +504,13 @@ def wait_for_core(version=None, timeout=900):
     return {"up": False, "waited_s": int(time.time() - t0)}
 
 
+def progress_file():
+    return os.path.join(WORK_DIR, "progress-" + datetime.now().strftime("%Y-%m-%d") + ".json")
+
+
 def record(step):
     os.makedirs(WORK_DIR, exist_ok=True)
-    path = os.path.join(WORK_DIR, "progress-" + datetime.now().strftime("%Y-%m-%d") + ".json")
+    path = progress_file()
     try:
         with open(path) as f:
             steps = json.load(f)
@@ -519,6 +533,8 @@ def install(entity_id, timeout=1500):
         return {"ok": False, "entity_id": entity_id, "error": "firmware and other servers are never updated here"}
     if u["prerelease"]:
         return {"ok": False, "entity_id": entity_id, "error": f"{u['latest']} is a pre-release; stable updates only"}
+    if u["kind"] == "supervisor" and sup("/supervisor/info").get("channel") != "stable":
+        return {"ok": False, "entity_id": entity_id, "error": "the Supervisor is not on the stable channel; stable updates only"}
     record({"entity_id": entity_id, "kind": u["kind"], "from": u["installed"], "to": u["latest"], "step": "started"})
     was = sup(f"/addons/{u['slug']}/info")["state"] if u["kind"] in ("addon", "housemate") else None
     body = {"entity_id": entity_id}
@@ -554,6 +570,21 @@ def install(entity_id, timeout=1500):
             "next": "reboot the host to finish the OS update" if u["kind"] == "os" and done else None}
 
 
+def restart_core(timeout=900):
+    """Home Assistant's configuration check, then one Core restart (HACS integrations take
+    effect on it), then wait until Core is back and settled."""
+    check = http(CORE + "/api/config/core/check_config", "POST", {})
+    if check.get("result") != "valid":
+        return {"ok": False, "error": "the configuration check failed; not restarting", "check": check}
+    record({"step": "core restart"})
+    try:
+        http(CORE + "/api/services/homeassistant/restart", "POST", {}, timeout=60)
+    except (urllib.error.URLError, ConnectionError, TimeoutError, OSError):
+        pass  # Core going down mid-call is how a restart looks
+    waited = wait_for_core(None, timeout)
+    return {"ok": waited["up"], **waited}
+
+
 def reboot():
     record({"step": "host reboot"})
     sup("/host/reboot", "POST")
@@ -571,9 +602,8 @@ def health(base_file, allow=()):
 
 def status():
     out = {"waiting": [u["entity_id"] for u in pending()], "progress": []}
-    path = os.path.join(WORK_DIR, "progress-" + datetime.now().strftime("%Y-%m-%d") + ".json")
     try:
-        with open(path) as f:
+        with open(progress_file()) as f:
             out["progress"] = json.load(f)
     except (OSError, ValueError):
         pass
@@ -615,7 +645,7 @@ def prepare_session(summary, target):
     return reply["session_id"]
 
 
-def daily(force=False):
+def daily():
     """Send the one summary a day. Returns what was done; raises when Home Assistant is not reachable."""
     found = pending()
     incoming = incoming_status()
@@ -624,25 +654,28 @@ def daily(force=False):
         return {"sent": False, "reason": "nothing is waiting"}
     state = load_state()
     key = digest(found, incoming)
+    target = kickoff.normalise_target(options().get("review_notify"))
     sid = state.get("session_id") if state.get("digest") == key else None
     if not session_exists(sid):
-        sid = prepare_session(summary, kickoff.normalise_target(options().get("review_notify")))
+        sid = prepare_session(summary, target)
     url = kickoff.panel_url()
     message = (f"{summary['text']}\n\nA review is ready in Housemate: open it and say go. It reads the release notes "
                "against your configuration, makes a backup, and asks twice (install, then restart) before it changes anything.")
-    target = kickoff.normalise_target(options().get("review_notify"))
+    delivered = []
     if target:
-        kickoff.service("notify", target, {
+        delivered.append(kickoff.service("notify", target, {
             "title": summary["title"],
             "message": summary["short"].capitalize() + ". Review opens Housemate.",
             "data": {"url": url, "clickAction": url, "tag": "housemate_update_review",
                      "actions": [{"action": "URI", "title": "Review", "uri": url}]},
-        })
-    kickoff.service("persistent_notification", "create", {
+        }))
+    delivered.append(kickoff.service("persistent_notification", "create", {
         "title": summary["title"],
         "message": f"{message}\n\n[Review]({url}) (session `{sid}`)",
         "notification_id": "housemate_update_review",
-    })
+    }))
+    if not all(delivered):  # tomorrow's run, or the next minute's, tries again
+        return {"sent": False, "reason": "a notification could not be delivered", "session_id": sid}
     save_state(dict(state, digest=key, session_id=sid, last_sent=datetime.now().isoformat(timespec="seconds")))
     return {"sent": True, "session_id": sid, "title": summary["title"], "url": url, "companion": bool(target)}
 
@@ -665,7 +698,8 @@ def serve():
             if due(now.strftime("%H:%M"), now.strftime("%Y-%m-%d"), state.get("last_date"), review_time(options())):
                 result = daily()
                 kickoff.log(f"update review: {json.dumps(result)}")
-                save_state(dict(load_state(), last_date=now.strftime("%Y-%m-%d")))
+                if result["sent"] or result.get("reason") == "nothing is waiting":
+                    save_state(dict(load_state(), last_date=now.strftime("%Y-%m-%d")))
         except Exception as e:  # noqa: BLE001 - Home Assistant may still be starting; try again next minute
             kickoff.log(f"update review: {e}")
         time.sleep(60)
@@ -682,7 +716,7 @@ def main(argv):
         elif cmd == "summary":
             out = summarise(pending(), incoming_status()) or {"text": "", "count": 0}
         elif cmd == "daily":
-            out = daily(force="--now" in argv)
+            out = daily()
         elif cmd == "serve":
             serve()
             return 0
@@ -704,6 +738,10 @@ def main(argv):
             return 0 if out["ok"] else 1
         elif cmd == "install" and len(argv) > 2:
             out = install(argv[2], int(arg("--timeout", 1500)))
+            print(json.dumps(out))
+            return 0 if out["ok"] else 1
+        elif cmd == "restart-core":
+            out = restart_core()
             print(json.dumps(out))
             return 0 if out["ok"] else 1
         elif cmd == "reboot":

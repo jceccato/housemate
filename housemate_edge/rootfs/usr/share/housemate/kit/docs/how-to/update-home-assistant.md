@@ -23,6 +23,7 @@ environment):
 | `baseline --out F` | Versions, open Repairs, error-log signatures, unavailable entities, automations on |
 | `backup` | One full backup named `pre-updates-<date>`, read back and checked |
 | `install ID` | One update, then wait until it has landed |
+| `restart-core` | Configuration check, then one Core restart (HACS integrations take effect on it), then wait until it is back |
 | `reboot` | Reboot the host (after an OS update) |
 | `health --baseline F` | Compare now with the baseline |
 | `status` | What this review has already done today |
@@ -82,9 +83,12 @@ database add-on on its own, other add-ons, HACS, Housemate last), for each:
 With only the install approval, do the updates that interrupt nothing first
 (add-ons, HACS files, the Supervisor, and the OS staged but not rebooted), then
 ask for the restart before the rest. The OS update takes effect only after
-`reboot`. A Core update, or HACS integrations installed before it, take effect
-on Core's restart: run Home Assistant's configuration check
-(`scripts/check-config.sh`) before any restart you start yourself.
+`reboot`. A Core update takes effect by itself restarting Core. HACS integrations
+take effect on a Core restart: once they are all installed (and Core is not being
+updated anyway), `restart-core` does the configuration check, restarts once and
+waits; then run `health`. Check the configuration (`scripts/check-config.sh`)
+before any other restart you start yourself. Stable releases only: a pre-release,
+or a Supervisor not on the stable channel, is left alone and reported.
 
 ## 5. Finish
 
