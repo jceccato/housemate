@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.22
+
+- Make the daily review's phone take effect without a restart
+
 ## 0.1.21
 
 - Onboarding: the review-notify command marks the phone step done
