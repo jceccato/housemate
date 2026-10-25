@@ -37,9 +37,14 @@ OPENCODE = os.environ.get("HOUSEMATE_OPENCODE_URL", "http://127.0.0.1:4096")
 SUPERVISOR = os.environ.get("HOUSEMATE_SUPERVISOR_URL", "http://supervisor")
 CORE = SUPERVISOR + "/core"
 LISTEN = ("0.0.0.0", int(os.environ.get("HOUSEMATE_KICKOFF_PORT", "8765")))
-# Where the notification opens. Until the phone chat has a page per session this
-# is the panel; the session's id is in the notification either way.
-CHAT_PATH = os.environ.get("HOUSEMATE_CHAT_PATH", "/?folder=/config")
+# Where the notification opens: the add-on's page in Home Assistant's frontend.
+# `/app/<slug>` is the route in Home Assistant 2026.10, which opens Housemate
+# whether or not it is shown in the sidebar (older releases used
+# `/hassio/ingress/<slug>`; the bare `/hassio/ingress/...` path is a plain 404
+# there). Until the phone chat has a page per session this is the panel; the
+# session's id is in the notification either way.
+APP_PREFIX = os.environ.get("HOUSEMATE_APP_PREFIX", "/app")
+CHAT_PATH = os.environ.get("HOUSEMATE_CHAT_PATH", "")
 STATE_FILE = os.environ.get("HOUSEMATE_KICKOFF_STATE", "/data/kickoff/sessions.json")
 MAX_TEXT = 2000
 MAX_TRACKED = 200
@@ -91,7 +96,7 @@ def addon_slug():
 
 
 def panel_url():
-    return f"/hassio/ingress/{addon_slug()}{CHAT_PATH}"
+    return f"{APP_PREFIX}/{addon_slug()}{CHAT_PATH}"
 
 
 def service(domain, name, data):
