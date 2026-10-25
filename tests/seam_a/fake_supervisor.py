@@ -9,6 +9,7 @@ Runs inside the add-on image (it has python3), as the host named `supervisor`:
 * GET  /core/api/states            entity states, from states.json (default: none)
 * GET  /core/api/config            Core as running, in UTC
 * WS   config/entity_registry/list  from registry.json (default: none); repairs/list_issues: none
+* WS   get_states, the device and area registries, get_services  from house.json (onboarding's scan)
 * GET  /_calls                       the recorded service calls, as a JSON list
 * POST /v1/chat/completions (port 8081)  a language model: answers "Done.", or, when asked to
                                      "ask me", calls OpenCode's question tool first
@@ -29,6 +30,13 @@ DIR = os.environ.get("FAKE_DIR", "/fake")
 SLUG = "local_housemate_edge"
 CALLS = []
 LOCK = threading.Lock()
+# What onboarding's scan asks Core for: websocket command -> key in house.json.
+HOUSE_COMMANDS = {
+    "get_states": "states",
+    "config/device_registry/list": "devices",
+    "config/area_registry/list": "areas",
+    "get_services": "services",
+}
 
 
 def load(name, default=None):
@@ -134,6 +142,9 @@ class Handler(BaseHTTPRequestHandler):
                 ws_send(self.wfile, {"id": msg["id"], "type": "result", "success": True, "result": load("registry.json", [])})
             elif msg["type"] == "repairs/list_issues":
                 ws_send(self.wfile, {"id": msg["id"], "type": "result", "success": True, "result": {"issues": []}})
+            elif msg["type"] in HOUSE_COMMANDS and os.path.exists(os.path.join(DIR, "house.json")):
+                ws_send(self.wfile, {"id": msg["id"], "type": "result", "success": True,
+                                     "result": load("house.json")[HOUSE_COMMANDS[msg["type"]]]})
             else:
                 ws_send(self.wfile, {"id": msg["id"], "type": "result", "success": False,
                                      "error": {"code": "unknown_command", "message": "no"}})

@@ -41,3 +41,17 @@ chat named "Update review". When the user opens it, or asks about updates, load
 the `update-review` skill and follow it: a read-only report first, then two
 approvals (install, restart), a backup, and one update at a time. Never install
 or restart before the matching approval.
+
+## Onboarding
+
+At the start of a conversation, run `housemate-onboarding status` once.
+
+- `new`: this is a fresh install and the user has not been welcomed. Load the
+  `onboarding` skill and begin it, whatever their first message is (a "hello" is
+  the usual one); the skill says how to handle a first message that is a request.
+- `in_progress`: say in one line which steps are still open and offer to
+  continue, once; do not start it uninvited.
+- `complete` or `declined`: say nothing about it.
+
+Also load the `onboarding` skill when the user asks to run, repeat or continue
+onboarding or setup, or to redo a step of it.

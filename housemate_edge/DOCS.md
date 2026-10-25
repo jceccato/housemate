@@ -66,6 +66,23 @@ time, stopping whenever a step is yours to take. Afterwards it reviews its own
 work and updates its notes. Matt Pocock's skills are MIT licensed; the notice
 is in `THIRD_PARTY_NOTICES.md`.
 
+### Onboarding
+
+The first time you talk to the agent on a fresh install, it welcomes you and
+walks you through setup, ending with a small automation built together. It takes
+about ten minutes and every step can be skipped: the model provider and key, putting `/config`
+under git, a scan of your entities, areas and devices into the cheat sheet (with
+the names you use for things), the phone to notify, an optional private remote
+(and GitHub Issues for bigger jobs if you link one), the voice sentence
+("Housemate, build me ...", only with your OK) and the first automation. If you
+have no phone registered with Home Assistant, that step is skipped and
+notifications appear in Home Assistant itself. Say "run onboarding" at any time
+to repeat a step. Progress is kept in `/config/.housemate/onboarding.json`; the
+scan writes between the `housemate-scan` markers of `docs/cheat-sheet.md` and
+only there, so your own notes survive a re-scan. Helpers of the template or
+group kind made in the Home Assistant UI are not tracked by git, because the file
+that holds them also holds credentials.
+
 ### When the kit changes: incoming
 
 A newer Housemate may carry a better kit. It never overwrites your files: on the
