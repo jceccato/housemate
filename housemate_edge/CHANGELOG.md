@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.11
+
+- Open Housemate from notifications at /app/<slug>, the frontend route that exists
+- Changelog: each build lists only the commits since the previous published build
+
 ## 0.1.10
 
 - Orchestrator review fixes: gated tickets stay on the frontier, name the next commands up front, one script rule
