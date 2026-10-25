@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.14
+
+- Add the daily update review: one summary, a briefed chat, two approvals (#15)
+
 ## 0.1.13
 
 - Update dependency coder/code-server to v4.143.1 (#13)
