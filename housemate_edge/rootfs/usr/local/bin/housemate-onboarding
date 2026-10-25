@@ -8,7 +8,7 @@ calls for the parts that are code, not conversation.
     housemate-onboarding step NAME STATE [NOTE] STATE: pending, done or skipped
     housemate-onboarding scan [--dry-run]       entities, areas and devices into the cheat sheet
     housemate-onboarding phones                 the notify services of companion-app phones
-    housemate-onboarding review-notify SERVICE  set the add-on option review_notify (the daily update review's phone)
+    housemate-onboarding review-notify SERVICE  set the add-on option review_notify (the daily review's phone) and mark the phone step done
     housemate-onboarding decline                the user does not want it now: stop offering it on its own
     housemate-onboarding reset                  forget progress (the skill re-runs from the top)
 
@@ -278,6 +278,7 @@ def main(argv):
         cmd_scan("--dry-run" in rest)
     elif cmd == "review-notify" and len(rest) == 1:
         set_review_notify(rest[0])
+        set_step("phone", "done", rest[0])
         print(f"The daily update review will notify {rest[0]}.")
     elif cmd == "phones":
         found = phones()
