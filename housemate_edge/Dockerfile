@@ -102,6 +102,23 @@ ENV \
 
 COPY rootfs /
 
+# Matt Pocock's engineering skills https://github.com/mattpocock/skills (MIT),
+# pinned by commit and made into the kit's baseline skills and commands by
+# build/vendor_skills.py (user-invoked steps become OpenCode commands). Renovate
+# bumps the commit; the build stops if upstream changes which steps are
+# user-invoked. Only the commit is checked out, and the fetch refuses a commit
+# that is not the one named.
+# renovate: git-refs https://github.com/mattpocock/skills main
+ARG MATT_SKILLS_REVISION=5beb35b040e3de97e54fa9e386d7e42d15c295c2
+COPY build/vendor_skills.py /tmp/vendor_skills.py
+RUN \
+    git init -q /tmp/skills \
+    && git -C /tmp/skills fetch -q --depth 1 https://github.com/mattpocock/skills.git "${MATT_SKILLS_REVISION}" \
+    && git -C /tmp/skills checkout -q FETCH_HEAD \
+    && test "$(git -C /tmp/skills rev-parse HEAD)" = "${MATT_SKILLS_REVISION}" \
+    && python3 -I /tmp/vendor_skills.py /tmp/skills /usr/share/housemate/kit --revision "${MATT_SKILLS_REVISION}" \
+    && rm -rf /tmp/*
+
 # code-server's own health endpoint, on the Ingress port.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s \
     CMD curl --fail --silent http://127.0.0.1:1337/healthz || exit 1

@@ -14,6 +14,11 @@ update with the add-on.
 - `docs/how-to/` has the recipes: write and reload an automation, test a
   template, read history, roll back with git.
 - `scripts/` holds scripts to reuse. `tracker/` holds bigger work, as markdown.
+- `.opencode/skills/` holds skills you may load when the work calls for them
+  (`home-assistant` for the API, `tdd`, `diagnosing-bugs`, `code-review`,
+  `writing-for-agents`, and more). `.opencode/commands/` holds commands that
+  only the user can start: `/grill`, `/to-spec`, `/to-tickets`, `/triage`,
+  `/setup-matt-pocock-skills`.
 
 ## How to work
 
@@ -45,8 +50,29 @@ update with the add-on.
     preferences, write it in `memory/` (one fact per file) and add a line to the
     index.
 
+## Commands are the user's
+
+Never start a command yourself, and never act out its steps unasked. When a
+request is big enough to deserve a grilling, say so and tell the user which
+command to type (`/grill`, then `/to-spec` and `/to-tickets`); let them choose.
+
 ## Never
 
 - Edit `.storage/` by hand while Home Assistant is running.
 - Delete files you did not create without asking.
 - Make a change you cannot undo without saying so first.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as markdown files in `tracker/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical labels, unchanged. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See
+`docs/agents/domain.md`.
