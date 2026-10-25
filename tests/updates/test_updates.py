@@ -59,6 +59,15 @@ class Pending(unittest.TestCase):
             "update.zigbee_lamp_firmware": "other",
         })
 
+    def test_an_add_on_from_a_custom_repository_has_no_picture_but_a_unique_id(self):
+        """Seen on Home Assistant 2026.10: the Housemate update entity has no entity_picture."""
+        states = [state("update.housemate_edge_update", picture=None)]
+        reg = {"update.housemate_edge_update": {"platform": "hassio", "unique_id": f"{SELF}_version_latest"}}
+        found = updates.pending_from(states, reg, SELF)
+        self.assertEqual((found[0]["kind"], found[0]["slug"]), ("housemate", SELF))
+        other = {"update.x": {"platform": "hassio", "unique_id": "core_ssh_version_latest"}}
+        self.assertEqual(updates.pending_from([state("update.x")], other, SELF)[0]["slug"], "core_ssh")
+
     def test_an_update_that_is_off_is_not_waiting(self):
         self.assertNotIn("update.home_assistant_supervisor_update", self.kinds)
 
