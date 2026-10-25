@@ -89,6 +89,13 @@ class Onboarding(unittest.TestCase):
     def test_the_phones_are_the_companion_apps_only(self):
         self.assertEqual(self.sh("housemate-onboarding phones").stdout.split(), ["notify.mobile_app_test_phone"])
 
+    def test_the_review_phone_is_set_through_the_options_api_with_the_rest_kept(self):
+        self.sh("housemate-onboarding review-notify notify.mobile_app_test_phone")
+        calls = json.loads(self.sh("curl -s http://supervisor/_calls").stdout)
+        sent = [c for c in calls if c["service"] == "addons/self/options"][-1]["data"]["options"]
+        self.assertEqual(sent["review_notify"], "notify.mobile_app_test_phone")
+        self.assertEqual(sent["provider"], "zen")
+
     def test_progress_is_kept_out_of_git(self):
         self.sh("housemate-onboarding step git done 'tracked'")
         self.sh("chown -R root:root /config")  # as in the real add-on

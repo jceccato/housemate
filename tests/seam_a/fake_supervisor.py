@@ -113,6 +113,10 @@ class Handler(BaseHTTPRequestHandler):
                     "authorized": self.headers.get("Authorization", "").startswith("Bearer "),
                 })
             self.send_json([])
+        elif self.path == "/addons/self/options":
+            with LOCK:
+                CALLS.append({"service": "addons/self/options", "data": json.loads(body or b"{}")})
+            self.send_json({"result": "ok", "data": {}})
         elif self.path == "/core/api/config/core/check_config":
             self.send_json({"result": "valid", "errors": None})
         else:
