@@ -41,8 +41,6 @@ jobs:
     permissions:
       contents: write # the stable folder, the release
       packages: write # stable's images
-    env:
-      GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -71,17 +69,21 @@ jobs:
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "${TOKEN}" | docker login ghcr.io -u "${ACTOR}" --password-stdin
 
       - name: Copy the images to stable's names
         env:
           VERSION: ${{ steps.check.outputs.version }}
+          OWNER: ${{ github.repository_owner }}
         run: |
           # The images first: the version below is written only once both exist.
           for arch in amd64 aarch64; do
             docker buildx imagetools create \
-              --tag "ghcr.io/${{ github.repository_owner }}/${arch}-housemate:${VERSION}" \
-              "ghcr.io/${{ github.repository_owner }}/${arch}-housemate-edge:${VERSION}"
+              --tag "ghcr.io/${OWNER}/${arch}-housemate:${VERSION}" \
+              "ghcr.io/${OWNER}/${arch}-housemate-edge:${VERSION}"
           done
 
       - name: Write the stable folder
@@ -104,7 +106,9 @@ jobs:
       - name: Create the GitHub Release
         env:
           VERSION: ${{ steps.check.outputs.version }}
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || github.token }}
         run: |
-          gh release create "v${VERSION}" --repo "${{ github.repository }}" \
+          gh release create "v${VERSION}" --repo "${REPO}" \
             --target "$(git rev-parse HEAD)" --title "Housemate ${VERSION}" \
             --notes-file "${RUNNER_TEMP}/notes.md"

@@ -7,7 +7,7 @@ the stable add-on, with nobody tracking releases by hand.
 Renovate PR --> CI (Seam A, both architectures) --> merge to main
   --> publish-edge: plan a version, push both images, tag, then bump
       housemate_edge/config.yaml and CHANGELOG.md
-  --> edge users and the maintainer's own Home Assistant see the update
+  --> edge users see the update
   --> (by hand) Promote edge to stable: copy the images, write housemate/,
       create a GitHub Release with the notes
 ```
@@ -42,8 +42,15 @@ The image comes before the version that names it, so a store refresh never sees
 a version with no image. Publishes run one at a time, so two merges cannot
 choose the same version. **Do not bump edge's version or write its changelog by
 hand**; merge your change and the pipeline does both. To say more than the
-commit subjects do, write the `## <version>` entry yourself in the same pull
-request as the next unused version, and the plan publishes it as it stands.
+commit subjects do, you can edit the `## <version>` entry after the pipeline
+has written it. A version bumped by hand is still published as it stands (and
+fails closed without its entry), but it reaches main before its image, so
+don't.
+
+A version with an image on only one architecture (a build that failed half way)
+is spent: the next publish takes the next number, so a tag is never completed
+from a different commit. The half-pushed images are harmless and are never
+promoted.
 
 ## Promotion (`promote.yml`)
 
@@ -53,6 +60,10 @@ newest edge build, or name one. It fails, having pushed nothing, unless:
 - edge has images for the version on both architectures and an `edge-<version>` tag;
 - edge's `CHANGELOG.md` has a non-empty entry for it (the notes);
 - the version is newer than stable's, and stable has no image with that tag.
+
+If the run stops after the images are copied but before `housemate/` is
+committed, stable has an image with no folder and a rerun is refused (a tag is
+never overwritten): finish by hand.
 
 Then it copies the images to the stable names, writes `housemate/` from the
 files at the `edge-<version>` commit (name, slug and image renamed; blocks in
@@ -87,7 +98,7 @@ The Mend Renovate app (free for public repositories), configured in
 - **Settings > General > Pull Requests > Allow auto-merge.**
 - A ruleset on `main` that requires the checks `Seam A (amd64)`,
   `Seam A (aarch64)` and `Pipeline scripts`, with the maintainer's account able
-  to bypass it (agents push to main as that account).
+  to bypass it (whoever pushes to main directly, such as an agent, does so as that account).
 - The Actions secret `RELEASE_TOKEN`: a fine-grained token on this repository
   with Contents: read and write (and Pull requests: read and write), of a user who
   can bypass the ruleset. The pipeline pushes its version bump, the promotion

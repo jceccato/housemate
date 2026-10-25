@@ -16,6 +16,7 @@ import json
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import urllib.error
@@ -128,9 +129,15 @@ def interpret_manifest_status(code):
     raise PipelineError(f"the registry answered {code}; cannot tell whether the image exists")
 
 
-def published(name, version, exists):
-    """True when every architecture's image for this version is in the registry."""
-    return all(exists(arch, name, version) for arch in ARCHES)
+def published(name, version, exists, any_arch=False):
+    """True when every architecture's image for this version is in the registry.
+
+    With any_arch, true when at least one is: that version is spent, because a
+    tag is never overwritten and a half-pushed version must not be completed
+    from a different commit.
+    """
+    found = (exists(arch, name, version) for arch in ARCHES)
+    return any(found) if any_arch else all(found)
 
 
 def registry_exists(arch, name, version):
@@ -239,14 +246,10 @@ def _git(*args):
     return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
 
 
-def _exists(name):
-    return lambda arch, n, v: registry_exists(arch, n, v)
-
-
 def cmd_plan(a):
     config = _read(a.config)
     current = read_version(config)
-    version, bump = plan(current, lambda v: published(a.name, v, registry_exists))
+    version, bump = plan(current, lambda v: published(a.name, v, registry_exists, any_arch=True))
     if not bump:
         # A hand bump publishes without the pipeline writing anything, so its
         # changelog entry must already be there: fail closed without one.
@@ -307,8 +310,6 @@ def cmd_promote_write(a):
     for extra in ("translations", "icon.png", "logo.png"):
         p = src / extra
         if p.is_dir():
-            import shutil
-
             shutil.copytree(p, dst / extra, dirs_exist_ok=True)
         elif p.exists():
             (dst / extra).write_bytes(p.read_bytes())

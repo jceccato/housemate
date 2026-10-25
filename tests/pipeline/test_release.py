@@ -210,6 +210,11 @@ class Registry(unittest.TestCase):
         have.add(("aarch64", "0.1.4"))
         self.assertTrue(release.published("housemate-edge", "0.1.4", exists))
 
+    def test_a_half_pushed_version_is_spent_for_planning(self):
+        exists = lambda arch, name, v: arch == "amd64"  # noqa: E731
+        self.assertFalse(release.published("housemate-edge", "0.1.4", exists))
+        self.assertTrue(release.published("housemate-edge", "0.1.4", exists, any_arch=True))
+
     def test_status_404_is_absent_200_is_present_anything_else_is_an_error(self):
         self.assertTrue(release.interpret_manifest_status(200))
         self.assertFalse(release.interpret_manifest_status(404))

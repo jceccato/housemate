@@ -48,6 +48,8 @@ jobs:
         run: python3 .github/scripts/pin_checksums.py housemate_edge/Dockerfile
 
       - name: Push them to the branch
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           if git diff --quiet; then
             echo "pins already match"
@@ -58,15 +60,22 @@ jobs:
           git add housemate_edge/Dockerfile
           git commit -m "Update release checksums" \
             -m "Recomputed from the downloads by .github/scripts/pin_checksums.py."
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          git push origin "HEAD:${HEAD_REF}"
 
       - name: Auto-merge when CI passes, unless it is a major update
         env:
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
           PR: ${{ github.event.pull_request.number }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REPO: ${{ github.repository }}
         run: |
+          # Renovate adds labels after it opens the PR, so the branch name
+          # (renovate/major-...) is the reliable sign of a major update.
           case ",${LABELS}," in
             *,major,*) echo "major update: left for review"; exit 0 ;;
           esac
-          gh pr merge "${PR}" --repo "${{ github.repository }}" --auto --squash
+          case "${HEAD_REF}" in
+            renovate/major-*) echo "major update: left for review"; exit 0 ;;
+          esac
+          gh pr merge "${PR}" --repo "${REPO}" --auto --squash
