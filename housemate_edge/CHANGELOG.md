@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7
+
+- Refuse to stage without a kit directory; ignore staged paths outside /config
+- Stage newer kit files as incoming, never overwriting, with an incoming-review skill
+- Ship baseline skills and commands in the kit
+
 ## 0.1.6
 
 - Ship baseline skills and commands in the kit

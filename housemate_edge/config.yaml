@@ -1,5 +1,5 @@
 name: Housemate (edge)
-version: 0.1.6
+version: 0.1.7
 slug: housemate_edge
 description: The newest Housemate build, for testers. An agent in the sidebar that builds Home Assistant with you.
 url: https://github.com/jceccato/housemate
