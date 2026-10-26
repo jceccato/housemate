@@ -16,16 +16,28 @@ The Supervisor gives an add-on four things, and this harness provides each:
 
 Everything a test asserts is what a user or the Supervisor could see from
 outside the container: files, logs, processes, and what the services answer.
+
+Cleaning up: every container, network, volume and image built that this harness
+creates carries the labels `housemate.test=1`, `housemate.test.run=<RUN_ID>` and
+`housemate.test.started=<epoch>` (added in `docker()`), and its names carry the
+run id. When the process exits, however it ends (pass, fail, Ctrl-C, SIGTERM),
+everything of this run is removed; when it starts, runs more than an hour old
+are swept. A run killed outright (SIGKILL) is left for the next start's sweep,
+or `python3 tests/seam_a/cleanup.py`. See `docs/testing.md`.
 """
 
+import atexit
 import json
 import os
 import pathlib
 import shutil
+import signal
 import subprocess
 import tempfile
 import time
 import uuid
+
+import cleanup
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 ADDON_DIR = ROOT / "housemate_edge"
@@ -34,8 +46,25 @@ STUB_IMAGE = "busybox:stable"
 INGRESS_PORT = 1337
 
 
+# One id per process: names carry it, labels carry it, the sweep reads it.
+RUN_ID = uuid.uuid4().hex[:8]
+RUN_STARTED = int(time.time())
+LABELS = [
+    "--label", f"{cleanup.LABEL}=1",
+    "--label", f"{cleanup.RUN_LABEL}={RUN_ID}",
+    "--label", f"{cleanup.STARTED_LABEL}={RUN_STARTED}",
+]
+_LABELLED = {("run",), ("create",), ("build",), ("network", "create"), ("volume", "create")}
+
+
 def docker(*args, check=True, input=None, timeout=300):
-    """Run a docker command; returns the CompletedProcess (text mode)."""
+    """Run a docker command; returns the CompletedProcess (text mode).
+
+    Whatever it creates is labelled as this run's (see the module docstring)."""
+    for n in (1, 2):
+        if tuple(args[:n]) in _LABELLED:
+            args = (*args[:n], *LABELS, *args[n:])
+            break
     return subprocess.run(
         ["docker", *args],
         check=check,
@@ -46,13 +75,42 @@ def docker(*args, check=True, input=None, timeout=300):
     )
 
 
+def build_image(name, dockerfile_lines):
+    """Build `harness.IMAGE` plus some lines (a deliberately broken image); returns its tag.
+
+    The tag carries the run id and the image is labelled, so the sweep finds it.
+    The caller removes it (`docker rmi -f`); the exit sweep removes what is left."""
+    with tempfile.TemporaryDirectory() as d:
+        pathlib.Path(d, "Dockerfile").write_text(f"FROM {IMAGE}\n" + "\n".join(dockerfile_lines) + "\n")
+        tag = f"{cleanup.MUTANT_REPO}{name}:{RUN_ID}"
+        docker("build", "-q", "-t", tag, d)
+    return tag
+
+
+def _exit_sweep():
+    signal.signal(signal.SIGINT, signal.SIG_IGN)  # a second Ctrl-C must not abort the cleanup
+    cleanup.sweep(run=RUN_ID)
+
+
+def _on_sigterm(signum, frame):
+    raise SystemExit(128 + signum)  # let atexit run
+
+
+atexit.register(_exit_sweep)
+try:
+    signal.signal(signal.SIGTERM, _on_sigterm)
+except ValueError:  # not the main thread
+    pass
+cleanup.sweep(cleanup.STALE_AFTER)  # leftovers of runs that were killed outright
+
+
 class AddOn:
     """One add-on instance with its fixture `/config` and `/data`."""
 
     def __init__(self, options, config_files=None):
-        self.id = uuid.uuid4().hex[:10]
+        self.id = f"{RUN_ID}-{uuid.uuid4().hex[:4]}"
         self.options = options
-        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix="housemate-seam-a-"))
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix=f"{cleanup.TMP_PREFIX}{RUN_ID}-"))
         self.config = self.tmp / "config"
         self.data = self.tmp / "data"
         self.www = self.tmp / "www"
@@ -139,13 +197,13 @@ class AddOn:
         """What the Supervisor does on a restart: a new container, same /data."""
         self.logs_before = getattr(self, "logs_before", "") + self.logs()
         docker("stop", "-t", "20", self.name)
-        docker("rm", self.name)
+        docker("rm", "-v", self.name)
         self._run_addon()
         self.wait_ready()
 
     def stop(self):
         for name in (self.name, self.stub, self.ingress_client, self.core_client):
-            docker("rm", "-f", name, check=False)
+            docker("rm", "-f", "-v", name, check=False)
         docker("network", "rm", self.network, check=False)
         # Files written by the container are root-owned: remove them from inside.
         docker("run", "--rm", "-v", f"{self.tmp}:/x", STUB_IMAGE, "rm", "-rf", "/x/config", "/x/data", "/x/www", check=False)

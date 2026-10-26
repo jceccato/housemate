@@ -15,10 +15,7 @@ KICKOFF = "/usr/lib/housemate/kickoff.py"
 
 def failures_with(dockerfile_lines, test_name):
     """Run one Review test against a broken image; the failures it reports."""
-    with tempfile.TemporaryDirectory() as d:
-        Path(d, "Dockerfile").write_text(f"FROM {harness.IMAGE}\n" + "\n".join(dockerfile_lines) + "\n")
-        tag = f"housemate-mutant-review:{os.getpid()}"
-        docker("build", "-q", "-t", tag, d)
+    tag = harness.build_image("review", dockerfile_lines)
     saved = harness.IMAGE
     harness.IMAGE = tag
     try:

@@ -13,6 +13,8 @@ builds it with the user. Read [README.md](README.md) for what it is and
 - `tests/seam_a/`: the container tests, run from outside (see its harness).
   `HOUSEMATE_IMAGE=<image> python3 -m unittest discover -s tests/seam_a -v`.
   `test_mutants.py` breaks the image on purpose to prove the tests can fail.
+  Everything it starts is labelled `housemate.test=1` and swept at exit and at
+  the next start; `docs/testing.md` has the cleanup command.
 - `.github/workflows/`: `tests.yml` (pull requests, and the gate the publish
   workflow calls), `publish-edge.yml` (main: build both architectures, push the
   images, then tag and bump edge's version and changelog), `promote.yml` (by

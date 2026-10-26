@@ -15,10 +15,7 @@ OPENCODE_RUN = "/etc/s6-overlay/s6-rc.d/opencode-server/run"
 
 def failures_with(dockerfile_lines, test_name):
     """Run one Voice test against a broken image; the failures it reports."""
-    with tempfile.TemporaryDirectory() as d:
-        Path(d, "Dockerfile").write_text(f"FROM {harness.IMAGE}\n" + "\n".join(dockerfile_lines) + "\n")
-        tag = f"housemate-mutant-voice:{os.getpid()}"
-        docker("build", "-q", "-t", tag, d)
+    tag = harness.build_image("voice", dockerfile_lines)
     saved = harness.IMAGE
     harness.IMAGE = tag
     try:

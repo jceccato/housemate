@@ -22,7 +22,7 @@ version, your Home Assistant version and architecture, and what you expected.
 1. Fork, branch from `main`, and keep the change focused.
 2. Describe what changed and why; link the issue.
 3. Update the docs and the glossary if you add or rename a concept.
-4. Make sure CI passes. Once CI exists it builds and smoke-tests both
+4. Run the tests locally if you can: [docs/testing.md](docs/testing.md) says how, and how the container tests clean up after themselves. Make sure CI passes. Once CI exists it builds and smoke-tests both
    architectures.
 5. Do not commit secrets, tokens or anything specific to your house.
 
