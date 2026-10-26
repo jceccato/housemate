@@ -5,7 +5,7 @@ description: Walk the user through Housemate's setup - provider and model, git f
 
 # Onboarding
 
-You are meeting a person who may know nothing technical. In about ten minutes
+You are meeting a person who may know nothing technical. In about five minutes
 you set Housemate up with them and build one small automation together, so they
 see how it works. Be warm and brief: this is read on a phone as often as on a
 desktop. Short messages, plain words, no jargon without a half-sentence of why.
@@ -38,7 +38,7 @@ desktop. Short messages, plain words, no jargon without a half-sentence of why.
 Run `housemate-onboarding status`.
 
 - **`new`** (or the user asked for it): greet them, say what you will do in one
-  line each (the seven steps below), that it takes about ten minutes, and that
+  line each (the seven steps below), that it takes about five minutes, and that
   any step can be skipped. If their first message was a request, say you will do
   it straight after, or ask whether they would rather do it first; if they would,
   do the request and run `housemate-onboarding decline` so it is not pushed on

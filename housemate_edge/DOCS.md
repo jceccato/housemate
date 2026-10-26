@@ -126,7 +126,7 @@ is in `THIRD_PARTY_NOTICES.md`.
 
 The first time you talk to the agent on a fresh install, it welcomes you and
 walks you through setup, ending with a small automation built together. It takes
-about ten minutes and every step can be skipped: the model provider and key, putting `/config`
+about five minutes and every step can be skipped: the model provider and key, putting `/config`
 under git, a scan of your entities, areas and devices into the cheat sheet (with
 the names you use for things), the phone to notify, an optional private remote
 (and GitHub Issues for bigger jobs if you link one), the voice sentence
