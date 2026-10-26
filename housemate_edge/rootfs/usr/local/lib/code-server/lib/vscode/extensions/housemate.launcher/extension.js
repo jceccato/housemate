@@ -2,7 +2,9 @@
 //
 // On every start of a window it opens OpenCode in a terminal tab in the editor
 // area (not the bottom panel), resuming the newest chat, unless that tab is
-// already there: opening the panel twice never stacks a second OpenCode.
+// already there: opening the panel twice never stacks a second OpenCode. The
+// exception is a chat that something wants the person in (a job's question, the
+// first-run welcome): that gets a tab of its own, in front.
 // It also adds two commands (and status bar buttons) so that a person need not
 // know OpenCode's own: start a new chat, and choose another recent one.
 //
@@ -62,6 +64,24 @@ function activate(context) {
     closeBottomPanel();
   }
 
+  // A chat a job marked since the panel last looked, or the welcome chat on a first
+  // run (panel_open.py): it gets a tab of its own, in front. Otherwise the usual chat.
+  function takeChat() {
+    return new Promise((resolve) => {
+      cp.execFile("python3", ["/usr/lib/housemate/panel_open.py", "take"],
+        { cwd: CWD, timeout: 20000 }, (err, stdout) => resolve(err ? "" : String(stdout).trim()));
+    });
+  }
+
+  async function openPanel() {
+    const id = await takeChat();
+    if (!/^[A-Za-z0-9_-]+$/.test(id)) { openAgent(); return; }
+    const existing = findOpenCode(vscode.window.terminals);
+    if (existing && existing.exitStatus !== undefined) existing.dispose();
+    open(["--session", id]).show();
+    closeBottomPanel();
+  }
+
   function newChat() {
     // A new chat is a new tab beside the one running; the old one stays.
     open(["--new"]).show();
@@ -97,7 +117,7 @@ function activate(context) {
 
   // On start of a window (a fresh open, a reload, a reconnect after the add-on
   // restarted): wait for a revived tab, then open the agent only if none came back.
-  setTimeout(() => { openAgent(); }, SETTLE_MS);
+  setTimeout(() => { openPanel(); }, SETTLE_MS);
 }
 
 function deactivate() {}

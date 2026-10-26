@@ -124,8 +124,8 @@ is in `THIRD_PARTY_NOTICES.md`.
 
 ### Onboarding
 
-The first time you talk to the agent on a fresh install, it welcomes you and
-walks you through setup, ending with a small automation built together. It takes
+The first time you open the panel on a fresh install, a chat called "Welcome to
+Housemate" opens and the agent starts the setup by itself, ending with a small automation built together. It takes
 about five minutes and every step can be skipped: the model provider and key, putting `/config`
 under git, a scan of your entities, areas and devices into the cheat sheet (with
 the names you use for things), the phone to notify, an optional private remote

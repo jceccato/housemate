@@ -74,7 +74,7 @@ def launcher_problems(addon):
         t = fresh["created"][0]
         if t.get("location") != {"viewColumn": -1}:
             found.append("the terminal is not in the editor area")
-        if t.get("shellPath") != AGENT or t.get("shellArgs"):
+        if t.get("shellPath") != AGENT or (t.get("shellArgs") and t["shellArgs"][0] != "--session"):
             found.append("the terminal does not run housemate-agent for the newest chat")
     if "run:workbench.action.closePanel" not in fresh["commands"]:
         found.append("the bottom panel is not closed")
@@ -223,6 +223,26 @@ class Panel(unittest.TestCase):
         opened = the_chat_the_panel_opens(a)
         self.assertNotIn("ses_gone", opened)
         self.assertIn(handmade, opened)
+
+    def test_a_marked_chat_gets_a_tab_in_front_even_when_the_agent_is_already_open(self):
+        a = self.addon
+        self.wait_endpoint()
+        launcher(a, [])  # a first run: the welcome chat is made, and nothing else is pending
+        job = self.kickoff({"text": "build me a night light", "user_id": ADMIN, "notify": "notify.mobile_app_test_phone"})["session_id"]
+        made = launcher(a, ["OpenCode"])["created"]
+        self.assertEqual([(t["shellPath"], t["shellArgs"]) for t in made], [(AGENT, ["--session", job])])
+        # taken once: the next window start finds nothing new, and the open tab is enough
+        self.assertEqual(launcher(a, ["OpenCode"])["created"], [])
+
+    def test_a_first_run_opens_a_welcome_chat_that_has_been_asked_to_start_onboarding(self):
+        a = self.addon
+        a.exec("rm -f /config/.housemate/welcome-session /config/.housemate/onboarding.json")
+        made = launcher(a, [])["created"]
+        self.assertEqual(len(made), 1)
+        self.assertEqual(made[0]["shellArgs"][0], "--session")
+        chats = json.loads(a.exec("curl -s localhost:4096/session").stdout)
+        welcome = [c for c in chats if c["id"] == made[0]["shellArgs"][1]]
+        self.assertEqual([c["title"] for c in welcome], ["Welcome to Housemate"])
 
     def test_the_editor_page_carries_the_reconnect_helper(self):
         a = self.addon

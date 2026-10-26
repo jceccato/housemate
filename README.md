@@ -36,7 +36,7 @@ anything can be undone with a sentence.
   arrive as **incoming** for you to review with the agent; nothing is
   overwritten.
 - **Guided first run**: the agent walks you through setup the first time you
-  talk to it (model, git, a scan of your house, the phone to notify, an
+  open the panel (model, git, a scan of your house, the phone to notify, an
   optional private remote, the voice sentence, which it installs and restarts
   Home Assistant for only when you say yes to each) and builds one small
   automation with you.
@@ -128,9 +128,11 @@ are the same.
    reach the panel with **Open web UI** or at `/app/<slug>` (for the edge
    add-on `/app/<repository id>_housemate_edge`; the id is in the add-on's
    address).
-6. Say hello. The agent walks you through setup; it takes about five minutes
+6. The first time the panel opens, a chat called "Welcome to Housemate" starts
+   by itself and the agent walks you through setup; it takes about five minutes
    and every step can be skipped. OpenCode opens in a dark editor tab on your
-   newest chat (or the one a job last marked current), with **New chat** and
+   newest chat (a chat a job wants you in, such as a question from a voice
+   request, opens in a tab of its own in front), with **New chat** and
    **Chats** buttons in the bar at the bottom. With Zen the default model is a
    free one.
 
