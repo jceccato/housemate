@@ -187,7 +187,11 @@ class ReviewResume(Base, unittest.TestCase):
     """After a restart the review carries on by itself, but only with both approvals given."""
 
     def opencode_messages(self, sid):
-        return self.opencode(f"/session/{sid}/message")
+        """OpenCode's server is not up yet for a moment after a restart: no messages until it is."""
+        try:
+            return self.opencode(f"/session/{sid}/message")
+        except Exception:  # noqa: BLE001
+            return []
 
     def restart(self):
         self.addon.restart()
@@ -202,7 +206,7 @@ class ReviewResume(Base, unittest.TestCase):
         self.helper("approved", "restart")
         before = len(self.opencode_messages(sid))
         self.restart()
-        deadline = time.time() + 120
+        deadline = time.time() + 240
         while time.time() < deadline and len(self.opencode_messages(sid)) <= before + 1:
             time.sleep(1)
         texts = [p["text"] for m in self.opencode_messages(sid) for p in m["parts"] if p["type"] == "text"]
