@@ -361,7 +361,7 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.reply(404, {"error": "not found"})
 
-    def resume(self, sid, text, target, source, title):
+    def resume(self, sid, text, target, title):
         """Carry on an existing chat (the update review after a reboot). Only the add-on itself may:
         a request from Core names no session of its own."""
         if self.client_address[0] != "127.0.0.1":
@@ -400,10 +400,9 @@ class Handler(BaseHTTPRequestHandler):
         if body.get("notify") and not target:
             return self.reply(400, {"error": "notify is not a notify service name"})
 
-        source = re.sub(r"[^a-z-]", "", str(body.get("source") or "kickoff").lower())[:32] or "kickoff"
         resume = body.get("resume_session")
         if resume is not None:
-            return self.resume(resume, text, target, source, body.get("title"))
+            return self.resume(resume, text, target, body.get("title"))
         prepare = body.get("prepare") is True
         is_admin, name = (False, None) if prepare else who_asked(body.get("user_id"))
         title = (body.get("title") or "Voice: " + text)[:70]

@@ -717,7 +717,6 @@ def session_exists(sid):
 def prepare_session(summary, target):
     reply = kickoff.call("POST", KICKOFF + "/kickoff", {
         "text": brief(summary), "title": "Update review: " + summary["short"], "notify": target, "prepare": True,
-        "source": "update-review",
     }, timeout=90)
     return reply["session_id"]
 
@@ -769,7 +768,6 @@ def resume_review():
     target = kickoff.normalise_target(options().get("review_notify"))
     reply = kickoff.call("POST", KICKOFF + "/kickoff", {
         "text": text, "resume_session": f["session"], "notify": target, "title": "Update review (carrying on)",
-        "source": "update-review",
     }, timeout=120)
     record({"step": "resumed", "session": f["session"]})
     return {"resumed": True, "session_id": reply.get("session_id")}
