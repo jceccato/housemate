@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.32
+
+- Any OpenAI-compatible provider; Providers docs; upstream attribution (#34)
+
 ## 0.1.31
 
 - Docs: onboarding's two voice questions, the real trial and the chats
