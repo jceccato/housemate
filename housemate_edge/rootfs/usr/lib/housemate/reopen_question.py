@@ -88,7 +88,7 @@ def tmux_watch(base, session):
     sock = ["tmux", "-L", "housemate"]
 
     def pane_title():
-        return subprocess.run(sock + ["display-message", "-p", "-t", "=" + session, "#{pane_title}"],
+        return subprocess.run(sock + ["display-message", "-p", "-t", "=" + session + ":", "#{pane_title}"],
                               capture_output=True, text=True, timeout=5).stdout.strip()
 
     def alive():
