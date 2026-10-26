@@ -57,7 +57,7 @@ def write(path, text):
 
 
 def onboarding_status():
-    r = subprocess.run(["housemate-onboarding", "status"], capture_output=True, text=True, timeout=30)
+    r = subprocess.run(["/usr/local/bin/housemate-onboarding", "status"], capture_output=True, text=True, timeout=30)
     first = r.stdout.splitlines()[0] if r.stdout else ""
     return first.replace("onboarding:", "").strip()
 
