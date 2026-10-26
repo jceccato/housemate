@@ -15,7 +15,7 @@ your `/config` open and [OpenCode](https://opencode.ai) already running.
 OpenCode opens by itself in a large tab in the editor area, on your newest chat,
 so a notification's link (a voice job, the update review) lands on the chat it
 started. Opening the panel again does not start a second OpenCode. If the add-on restarts
-(an update, a reboot) while the panel is open, the page reloads by itself and OpenCode
+(an update, a reboot) while the panel is open, the page reloads by itself within a few seconds of the add-on coming back, and OpenCode
 reopens, on the chat a job last marked as current (a voice job, the update review;
 the id is in `/config/.housemate/current-session`) or, with none, your newest chat. Visual Studio
 Code's own AI chat is hidden, so Housemate's agent is the only one on screen. The editor starts in a dark theme; pick another in the settings and it stays.
