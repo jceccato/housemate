@@ -41,7 +41,8 @@ options:
   api_key: ""
   review_time: "09:00"
 schema:
-  provider: list(go|zen)
+  provider: list(go|zen|openai-compatible)
+  base_url: str?
   api_key: password?
   model: str?
   review_notify: str?

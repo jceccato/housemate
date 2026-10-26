@@ -57,8 +57,9 @@ Everything is described in more detail in the add-on's **Documentation** tab
 
 Housemate is free and open source (MIT). **The model provider charges for the
 model's use**, and the agent uses it every time it thinks, so the cost is
-whatever you pay that provider. Housemate supports two, both from the
-OpenCode team:
+whatever you pay that provider. Housemate is **tested with DeepSeek V4.1
+Flash on OpenCode Go**, its default; see [Providers](#providers) for the others.
+The two from the OpenCode team:
 
 | Provider | How it is paid | Notes |
 | -------- | -------------- | ----- |
@@ -69,6 +70,35 @@ Current prices and which models are free are on [opencode.ai](https://opencode.a
 and change; Housemate does not set or control them. Your key is written to
 OpenCode's configuration when the add-on starts. Besides the add-on's own private
 options and data, it is not put in a log, on a command line or in your `/config`.
+
+## Providers
+
+| `provider` option | Status | Notes |
+| ----------------- | ------ | ----- |
+| `go` (**recommended**) | **Tested.** Housemate's end-to-end tests and its maintainer use **DeepSeek V4.1 Flash on OpenCode Go**, the default model. | A subscription from [opencode.ai](https://opencode.ai). |
+| `zen` | Works; free models are untested over long jobs. | Pay as you go, plus **free models** with a usage limit. |
+| `openai-compatible` | **Untested** against real services. Housemate's tests drive it against a stand-in server only. | Any endpoint that speaks the OpenAI chat-completions API. |
+
+For `openai-compatible`, fill three options in the Configuration tab:
+
+- `base_url`: the endpoint's base URL, the part before `/chat/completions`.
+  For example `https://openrouter.ai/api/v1` for OpenRouter, or
+  `http://my-server.local:8000/v1` for a server you run yourself (vLLM, llama.cpp,
+  Ollama's `/v1`). It must start with `http://` or `https://`.
+- `api_key`: your key at that service. Leave it empty for a local server that
+  needs none.
+- `model`: **required**; the model id exactly as the endpoint names it, for
+  example `deepseek/deepseek-chat` on OpenRouter. Housemate does not guess one.
+
+Save, then restart the add-on. If `base_url` or `model` is missing the add-on
+stops at start and its log says which. A small model, or one without good tool
+calling, will do the work badly; that is the model's limit, not the add-on's.
+Other providers and models are untested, and best-effort support applies.
+
+To use a **different model on Go or Zen**, put it in the `model` option as
+`provider/model`, for example `opencode-go/deepseek-v4.1-flash`
+(`opencode-go/...` for Go, `opencode/...` for Zen). Empty means the provider's
+default.
 
 ## Install
 
@@ -89,8 +119,9 @@ are the same.
    and confirm.)
 3. Find **Housemate (edge)** in the list (refresh the page if it is not there)
    and **Install**. This pulls a prebuilt image; it does not build on your box.
-4. On the **Configuration** tab choose your **Model provider** (`go` or `zen`)
-   and paste your **API key** (a Zen free model needs none). Save.
+4. On the **Configuration** tab choose your **Model provider** (`go`,
+   `zen` or `openai-compatible`; see [Providers](#providers)) and paste your
+   **API key** (a Zen free model needs none). Save.
 5. **Start** the add-on. Housemate switches itself on in the sidebar the first
    time it starts; open it from there. If you turn **Show in sidebar** off on
    the add-on's Info page, Housemate never turns it back on, and you can still
@@ -216,6 +247,8 @@ Housemate stands on other people's work:
 
 "Home Assistant" is a trademark of Nabu Casa, Inc. Housemate is not affiliated
 with or endorsed by it.
+
+**Upstream attribution:** This is an independent Home Assistant add-on that redistributes and integrates OpenCode, © 2025 opencode, under the MIT License. It is not made by, affiliated with, or endorsed by the OpenCode team or Anomaly. See the [third-party notices](THIRD_PARTY_NOTICES.md).
 
 ## Licence
 

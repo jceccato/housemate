@@ -11,6 +11,7 @@ Runs inside the add-on image (it has python3), as the host named `supervisor`:
 * WS   config/entity_registry/list  from registry.json (default: none); repairs/list_issues: none
 * WS   get_states, the device and area registries, get_services  from house.json (onboarding's scan)
 * GET  /_calls                       the recorded service calls, as a JSON list
+* GET  /_model_requests              what the language model was asked: path, model, Authorization header
 * POST /v1/chat/completions (port 8081)  a language model: answers "Done.", or, when asked to
                                      "ask me", calls OpenCode's question tool first
 
@@ -29,6 +30,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 DIR = os.environ.get("FAKE_DIR", "/fake")
 SLUG = "local_housemate_edge"
 CALLS = []
+MODEL_REQUESTS = []
 LOCK = threading.Lock()
 # What onboarding's scan asks Core for: websocket command -> key in house.json.
 HOUSE_COMMANDS = {
@@ -97,6 +99,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"state": "RUNNING", "version": "2026.10.4", "time_zone": "UTC"})
         elif self.path == "/core/api/":
             self.send_json({"message": "API running."})
+        elif self.path == "/_model_requests":
+            with LOCK:
+                self.send_json(MODEL_REQUESTS)
         elif self.path == "/_calls":
             with LOCK:
                 self.send_json(CALLS)
@@ -169,6 +174,9 @@ class Model(BaseHTTPRequestHandler):
 
     def do_POST(self):
         request = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))))
+        with LOCK:
+            MODEL_REQUESTS.append({"path": self.path, "model": request.get("model"),
+                                   "authorization": self.headers.get("Authorization")})
         messages = request.get("messages", [])
         asked = any(m.get("role") == "user" and "ask me" in json.dumps(m.get("content")) for m in messages)
         answered = any(m.get("role") == "tool" for m in messages)

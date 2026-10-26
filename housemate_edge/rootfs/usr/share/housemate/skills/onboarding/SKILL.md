@@ -58,8 +58,13 @@ jq -r '(.api_key // "") | length > 0' /data/options.json
 ```
 
 You are answering them, so the provider is working. Tell them: which provider
-(`go` is OpenCode Go, `zen` is OpenCode Zen), whether a key is set (Zen's free
-models need none), and which model you are running as. Say that a different
+(`go` is OpenCode Go, `zen` is OpenCode Zen, `openai-compatible` is any
+OpenAI-style endpoint the user pointed it at), whether a key is set (Zen's free
+models and a local openai-compatible server need none), and which model you are
+running as. For `openai-compatible`, also say that Housemate is tested with
+DeepSeek V4.1 Flash on OpenCode Go and that other providers and models are
+untested, and that `base_url` and `model` in the Configuration tab say where and
+what (never print the key). Say that a different
 model is a click away in OpenCode's model picker, and that the Configuration tab
 is where the provider and key live; a restart of the add-on applies a change.
 On Go, add one sentence: Go only answers from an allowlisted home address, so if

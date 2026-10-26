@@ -38,9 +38,10 @@ writing is unchanged.
 
 | Option | Meaning |
 | ------ | ------- |
-| `provider` | `go` for OpenCode Go, `zen` for OpenCode Zen. |
-| `api_key` | Your key from [opencode.ai](https://opencode.ai). Optional with Zen, whose free models need none. |
-| `model` | Optional. A model as `provider/model`, for example `opencode-go/deepseek-v4.1-flash`. Empty means the provider's default: `opencode-go/deepseek-v4.1-flash` with Go, a free model with Zen. |
+| `provider` | `go` for OpenCode Go, `zen` for OpenCode Zen, `openai-compatible` for any OpenAI-style endpoint (see [Providers](#providers)). |
+| `base_url` | Only for `openai-compatible`, where it is required: the endpoint's base URL, for example `https://openrouter.ai/api/v1`. |
+| `api_key` | Your key from [opencode.ai](https://opencode.ai) for Go or Zen (Zen's free models need none), or your key at the `openai-compatible` endpoint (optional for a local server). |
+| `model` | Optional, except with `openai-compatible`, where it is required and is the bare model id the endpoint expects. A model as `provider/model`, for example `opencode-go/deepseek-v4.1-flash`. Empty means the provider's default: `opencode-go/deepseek-v4.1-flash` with Go, a free model with Zen. |
 | `review_notify` | Optional. The notify service of your phone for the daily update review (for example `notify.mobile_app_my_phone`). |
 | `review_time` | When the daily update review is sent, `HH:MM` in Home Assistant's time zone. Default `09:00`. |
 
@@ -62,6 +63,26 @@ Housemate is free. The model provider charges for the model's use:
 
 Prices and which models are free are on [opencode.ai](https://opencode.ai) and
 are not Housemate's to set.
+
+### Providers
+
+- **OpenCode Go** (recommended) is the tested one: Housemate's end-to-end tests and
+  its maintainers use **DeepSeek V4.1 Flash on OpenCode Go**, the default model.
+- **OpenCode Zen** works, with free models that have a usage limit.
+- **`openai-compatible`** points OpenCode at any endpoint that speaks the OpenAI
+  chat-completions API. It is **untested** against real services; Housemate's
+  tests only drive it against a stand-in server. Fill three options:
+  `base_url` (the part before `/chat/completions`, for example
+  `https://openrouter.ai/api/v1` for OpenRouter or `http://my-server.local:8000/v1`
+  for a server you run), `api_key` (empty for a local server that needs none) and
+  `model` (**required**: the model id exactly as the endpoint names it, for
+  example `deepseek/deepseek-chat`). Restart the add-on. If `base_url` or `model`
+  is missing, the add-on stops at start and its log says which; the key is never
+  printed.
+
+To use another model on Go or Zen, set `model` to `provider/model` (for example
+`opencode-go/deepseek-v4.1-flash`, or `opencode/...` for Zen). Other providers
+and models are untested, and support is best-effort.
 
 ## What persists
 
@@ -271,3 +292,5 @@ so reports from those are welcome.
 
 OpenCode and code-server are pinned and never update themselves. They change
 only when the add-on does.
+
+**Upstream attribution:** This is an independent Home Assistant add-on that redistributes and integrates OpenCode, © 2025 opencode, under the MIT License. It is not made by, affiliated with, or endorsed by the OpenCode team or Anomaly. See the [third-party notices](https://github.com/jceccato/housemate/blob/main/THIRD_PARTY_NOTICES.md).
