@@ -30,3 +30,5 @@ The first kit, as it is first copied into `/config`:
   box to type your own answer. Onboarding recommends restarting Home Assistant
   right after you ask for voice, or for anything else that works only after it; a
   restart it proposes for any other reason recommends "later".
+- **First run starts itself.** The first time the panel opens, a chat called
+  "Welcome to Housemate" begins onboarding without you typing anything.
