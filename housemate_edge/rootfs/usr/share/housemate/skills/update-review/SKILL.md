@@ -35,6 +35,9 @@ and follow it. The helper is `housemate-updates`.
   or ends this chat before the restart approval. A restart means: the host
   reboot after an OS update, the Core update, a restart for HACS, and
   Housemate's own update.
+- After an OS update and its reboot, success means `housemate-updates health` is ok, which
+  includes Home Assistant answering on the host's address again. If the host never comes back,
+  say so; do not report it done.
 - Never roll back on your own. A failed health check means stop and ask; the
   backup is for the user to say yes to.
 - Updates the helper lists as not updated here (firmware, other servers) stay as

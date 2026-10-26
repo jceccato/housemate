@@ -112,6 +112,9 @@ If kit changes are waiting as incoming, offer the `incoming-review` skill last.
   shares it. `notes` is cheap, but do not run it over and over.
 - The unavailable count wanders by tens between reads; the health check allows
   10.
+- After an OS update the check also asks whether Home Assistant answers on the host's
+  address again (it once did not: the guest hung after the new kernel booted). If it does
+  not, say so plainly, and do not report success; the person may need the host's console.
 - The log may hold errors that were there before: the health check compares to the
   baseline's set, not to zero.
 - Supervisor, some add-ons and the OS may already be current if they update

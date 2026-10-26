@@ -168,6 +168,15 @@ class Health(unittest.TestCase):
             self.assertIn(needle, text)
         self.assertNotIn("ERROR x", text, "the same fault, logged again, is not new")
 
+    def test_an_address_lost_or_not_answering_is_a_problem(self):
+        """Seen on the test VM: after the OS update it stopped answering on its address."""
+        base = dict(self.BASE, addresses=["10.0.0.5"])
+        self.assertEqual(updates.compare(base, self.now(addresses=["10.0.0.5"], reachable={"10.0.0.5": True}), True, ()), [])
+        lost = " ".join(updates.compare(base, self.now(addresses=["169.254.1.2"], reachable={"169.254.1.2": True}), True, ()))
+        self.assertIn("10.0.0.5", lost)
+        silent = " ".join(updates.compare(base, self.now(addresses=["10.0.0.5"], reachable={"10.0.0.5": False}), True, ()))
+        self.assertIn("does not answer", silent)
+
     def test_a_small_wander_in_unavailable_is_not_a_problem(self):
         self.assertEqual(updates.compare(self.BASE, self.now(unavailable=20), True, ()), [])
 

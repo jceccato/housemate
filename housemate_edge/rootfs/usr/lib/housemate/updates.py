@@ -186,6 +186,12 @@ def compare(base, now, running, allow):
     problems = []
     if not running:
         problems.append("Home Assistant is not RUNNING")
+    lost = sorted(set(base.get("addresses", [])) - set(now.get("addresses", [])))
+    if lost:
+        problems.append(f"the host no longer has its address {lost}")
+    silent = sorted(a for a, up in (now.get("reachable") or {}).items() if not up)
+    if silent:
+        problems.append(f"Home Assistant does not answer on its address {silent}")
     new_repairs = sorted(r for r in set(now["repairs"]) - set(base["repairs"]) if not any(a in r for a in allow))
     if new_repairs:
         problems.append(f"new Repairs: {new_repairs}")
@@ -360,6 +366,32 @@ def running():
         return False
 
 
+def addresses():
+    """The host's IPv4 addresses, from the Supervisor (an OS update can lose a pinned one)."""
+    try:
+        out = []
+        for i in sup("/network/info").get("interfaces", []):
+            for a in (i.get("ipv4") or {}).get("address", []):
+                out.append(a.split("/")[0])
+        return sorted(set(out))
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def answers_on(address):
+    """Does Home Assistant answer there, from outside Core's own proxy? Any HTTP reply counts
+    (an unauthorised 401 is an answer); Core 2026.10 serves on 80, older Core on 8123."""
+    for port in (80, 8123):
+        try:
+            urllib.request.urlopen(f"http://{address}:{port}/api/onboarding", timeout=5).read()
+            return True
+        except urllib.error.HTTPError:
+            return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
+
+
 def counts():
     states = http(CORE + "/api/states")
     return {"unavailable": sum(s["state"] == "unavailable" for s in states),
@@ -399,7 +431,7 @@ def versions():
 
 def baseline():
     b = {"taken": datetime.now().isoformat(timespec="seconds"), "versions": versions(),
-         "repairs": repairs(), "error_signatures": error_signatures(), **counts()}
+         "repairs": repairs(), "error_signatures": error_signatures(), "addresses": addresses(), **counts()}
     b["error_entries"] = sum(b["error_signatures"].values())
     return b
 
@@ -680,7 +712,9 @@ def reboot():
 def health(base_file, allow=()):
     with open(base_file) as f:
         base = json.load(f)
-    now = {"repairs": repairs(), "error_signatures": error_signatures(), **counts()}
+    addrs = addresses()
+    now = {"repairs": repairs(), "error_signatures": error_signatures(), "addresses": addrs,
+           "reachable": {a: answers_on(a) for a in addrs}, **counts()}
     problems = compare(base, now, running(), allow)
     keys = ("unavailable", "automations_on", "repairs")
     return {"ok": not problems, "problems": problems, "now": {k: now[k] for k in keys}, "baseline": {k: base[k] for k in keys}}
