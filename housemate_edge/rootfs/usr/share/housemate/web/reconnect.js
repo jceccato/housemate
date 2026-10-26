@@ -1,19 +1,24 @@
 // Housemate: when the add-on restarts under an open panel, the editor shows
 // "Cannot reconnect. Please reload the window." and waits for a click. This
-// reloads the page by itself once the add-on answers again after being away for ten seconds or more, so that the agent
-// reopens on its own (the launcher extension does that on load).
+// reloads the page by itself once it sees the add-on has started afresh, so
+// that the agent reopens on its own (the launcher extension does that on load).
+//
+// "Started afresh" is a different boot id: a file written at every start of the
+// container and served beside this script. A blip in the network, or Home
+// Assistant being away for a moment, leaves the id as it was and reloads nothing.
 (function () {
-  var failures = 0;
   // Next to this script: the panel's own prefix, wherever Ingress put it.
-  var health = document.currentScript.src.replace("_housemate/reconnect.js", "healthz");
+  var boot = document.currentScript.src.replace("reconnect.js", "boot");
+  var seen = null;
   function check() {
-    fetch(health, { cache: "no-store", credentials: "same-origin" })
-      .then(function (r) {
-        if (!r.ok) throw new Error("not ready");
-        if (failures >= 4) { location.reload(); return; }
-        failures = 0;
+    fetch(boot, { cache: "no-store", credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.text() : Promise.reject(new Error("not ready")); })
+      .then(function (id) {
+        id = id.trim();
+        if (seen === null) { seen = id; } else if (id !== seen) { location.reload(); }
       })
-      .catch(function () { failures += 1; });
+      .catch(function () { /* away for now: try again */ });
   }
-  setInterval(check, 3000);
+  check();
+  setInterval(check, 2000);
 })();
