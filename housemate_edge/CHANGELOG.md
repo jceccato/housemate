@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.24
+
+- git-init: on a repository with history, commit only the ignore policy
+
 ## 0.1.23
 
 - Open the panel straight into OpenCode (#23)
