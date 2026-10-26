@@ -15,6 +15,10 @@ the update-review skill drives.
     housemate-updates restart-core        configuration check, then one Core restart (for HACS)
     housemate-updates reboot              reboot the host (after an OS update)
     housemate-updates health --baseline F compare now with a baseline
+    housemate-updates approved install|restart [--session ID]
+                                          record an approval the person gave (the add-on carries on
+                                          after a reboot only with both)
+    housemate-updates finish              record that the review is over
     housemate-updates status              what this review has done so far today
 
 Every command prints one JSON document. Exit 0 ok, 1 a check failed, 2 could not
@@ -28,8 +32,10 @@ import html
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -180,6 +186,12 @@ def compare(base, now, running, allow):
     problems = []
     if not running:
         problems.append("Home Assistant is not RUNNING")
+    lost = sorted(set(base.get("addresses", [])) - set(now.get("addresses", [])))
+    if lost:
+        problems.append(f"the host no longer has its address {lost}")
+    silent = sorted(a for a, up in (now.get("reachable") or {}).items() if not up)
+    if silent:
+        problems.append(f"Home Assistant does not answer on its address {silent}")
     new_repairs = sorted(r for r in set(now["repairs"]) - set(base["repairs"]) if not any(a in r for a in allow))
     if new_repairs:
         problems.append(f"new Repairs: {new_repairs}")
@@ -314,6 +326,12 @@ def github(path):
 
 
 def options():
+    """The add-on's options as they are now. The Supervisor serves them live; /data/options.json
+    is only rewritten when the add-on starts, so it is the fallback, not the source."""
+    try:
+        return http(SUP + "/addons/self/options/config", timeout=10)["data"]
+    except Exception:  # noqa: BLE001
+        pass
     try:
         with open(OPTIONS) as f:
             return json.load(f)
@@ -346,6 +364,32 @@ def running():
         return http(CORE + "/api/config", timeout=10).get("state") == "RUNNING"
     except Exception:  # noqa: BLE001
         return False
+
+
+def addresses():
+    """The host's IPv4 addresses, from the Supervisor (an OS update can lose a pinned one)."""
+    try:
+        out = []
+        for i in sup("/network/info").get("interfaces", []):
+            for a in (i.get("ipv4") or {}).get("address", []):
+                out.append(a.split("/")[0])
+        return sorted(set(out))
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def answers_on(address):
+    """Does Home Assistant answer there, from outside Core's own proxy? Any HTTP reply counts
+    (an unauthorised 401 is an answer); Core 2026.10 serves on 80, older Core on 8123."""
+    for port in (80, 8123):
+        try:
+            urllib.request.urlopen(f"http://{address}:{port}/api/onboarding", timeout=5).read()
+            return True
+        except urllib.error.HTTPError:
+            return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
 
 
 def counts():
@@ -387,7 +431,7 @@ def versions():
 
 def baseline():
     b = {"taken": datetime.now().isoformat(timespec="seconds"), "versions": versions(),
-         "repairs": repairs(), "error_signatures": error_signatures(), **counts()}
+         "repairs": repairs(), "error_signatures": error_signatures(), "addresses": addresses(), **counts()}
     b["error_entries"] = sum(b["error_signatures"].values())
     return b
 
@@ -513,22 +557,87 @@ def wait_for_core(version=None, timeout=900):
     return {"up": False, "waited_s": int(time.time() - t0)}
 
 
-def progress_file():
-    return os.path.join(WORK_DIR, "progress-" + datetime.now().strftime("%Y-%m-%d") + ".json")
+def progress_file(day=None):
+    return os.path.join(WORK_DIR, "progress-" + (day or datetime.now().strftime("%Y-%m-%d")) + ".json")
+
+
+def read_steps(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
 
 
 def record(step):
     os.makedirs(WORK_DIR, exist_ok=True)
     path = progress_file()
-    try:
-        with open(path) as f:
-            steps = json.load(f)
-    except (OSError, ValueError):
-        steps = []
+    steps = read_steps(path)
     steps.append(dict(step, at=datetime.now().isoformat(timespec="seconds")))
     with open(path, "w") as f:
         json.dump(steps, f, indent=1)
     return path
+
+
+def latest_steps():
+    """The steps of the newest progress file: a review can span midnight."""
+    files = sorted(glob.glob(os.path.join(WORK_DIR, "progress-*.json")))
+    return read_steps(files[-1]) if files else []
+
+
+MAX_RESUMES = 6
+
+
+def flight(steps):
+    """Where a review stands, from its steps: approvals given, whether it ended, how often the
+    add-on has already carried on by itself (a review that keeps dying is left to the person)."""
+    out = {"install": False, "restart": False, "session": None, "finished": False, "resumes": 0}
+    for st in steps:
+        kind = st.get("step")
+        if kind == "approved":
+            out[st["kind"]] = True
+            out["session"] = st.get("session") or out["session"]
+        elif kind == "review finished":
+            out.update(install=False, restart=False, finished=True, resumes=0)
+        elif kind == "resumed":
+            out["resumes"] += 1
+    return out
+
+
+def approve(kind, session=None):
+    if kind not in ("install", "restart"):
+        return {"ok": False, "error": "approve install or restart"}
+    sid = session or load_state().get("session_id")
+    record({"step": "approved", "kind": kind, "session": sid})
+    return {"ok": True, "approved": kind, "session": sid}
+
+
+def finish():
+    record({"step": "review finished"})
+    return {"ok": True}
+
+
+def resume_wanted(steps, waiting):
+    """The text to continue the review with, or None. Only with both approvals given, updates
+    still waiting and fewer than MAX_RESUMES earlier tries: with the restart still unapproved the
+    review waits for the person, as it does in the chat."""
+    f = flight(steps)
+    if not (f["install"] and f["restart"] and f["session"] and waiting and f["resumes"] < MAX_RESUMES):
+        return None
+    return (
+        "The add-on started again while the update review was in flight (a reboot, or the OS, Core or "
+        "Housemate update). The person has already given both approvals, install and restart: do not ask "
+        "for them again. Run `housemate-updates status` and `housemate-updates list`, see what has landed "
+        "and what is left, and carry on in the usual order, one update at a time with a health check after "
+        "each. When nothing is left, run `housemate-updates finish` and tell the person what happened."
+    )
+
+
+def status():
+    out = {"waiting": [u["entity_id"] for u in pending()], "progress": read_steps(progress_file())}
+    f = flight(latest_steps())
+    out["approvals"] = {"install": f["install"], "restart": f["restart"]}
+    return out
 
 
 def install(entity_id, timeout=1500):
@@ -603,20 +712,12 @@ def reboot():
 def health(base_file, allow=()):
     with open(base_file) as f:
         base = json.load(f)
-    now = {"repairs": repairs(), "error_signatures": error_signatures(), **counts()}
+    addrs = addresses()
+    now = {"repairs": repairs(), "error_signatures": error_signatures(), "addresses": addrs,
+           "reachable": {a: answers_on(a) for a in addrs}, **counts()}
     problems = compare(base, now, running(), allow)
     keys = ("unavailable", "automations_on", "repairs")
     return {"ok": not problems, "problems": problems, "now": {k: now[k] for k in keys}, "baseline": {k: base[k] for k in keys}}
-
-
-def status():
-    out = {"waiting": [u["entity_id"] for u in pending()], "progress": []}
-    try:
-        with open(progress_file()) as f:
-            out["progress"] = json.load(f)
-    except (OSError, ValueError):
-        pass
-    return out
 
 
 # -- the daily summary --------------------------------------------------------------------------------------------------
@@ -689,6 +790,34 @@ def daily():
     return {"sent": True, "session_id": sid, "title": summary["title"], "url": url, "companion": bool(target)}
 
 
+def resume_review():
+    """After a start: if a review was in flight with both approvals given, carry it on in its own
+    chat through the kick-off endpoint. Returns what was done."""
+    steps = latest_steps()
+    todo = [u for u in pending() if u["kind"] != "other"]
+    text = resume_wanted(steps, bool(todo))
+    if not text:
+        return {"resumed": False}
+    f = flight(steps)
+    target = kickoff.normalise_target(options().get("review_notify"))
+    reply = kickoff.call("POST", KICKOFF + "/kickoff", {
+        "text": text, "resume_session": f["session"], "notify": target, "title": "Update review (carrying on)",
+    }, timeout=120)
+    record({"step": "resumed", "session": f["session"]})
+    return {"resumed": True, "session_id": reply.get("session_id")}
+
+
+def resume_when_ready(wait=900):
+    """Home Assistant may take minutes to come back after a reboot: wait for it, then resume once."""
+    deadline = time.time() + wait
+    while time.time() < deadline and not running():
+        time.sleep(10)
+    try:
+        kickoff.log(f"update review: {json.dumps(resume_review())}")
+    except Exception as e:  # noqa: BLE001
+        kickoff.log(f"update review: could not carry on: {e}")
+
+
 def local_now():
     try:
         from zoneinfo import ZoneInfo
@@ -698,19 +827,41 @@ def local_now():
         return datetime.now(timezone.utc).astimezone()
 
 
+def attempt(seconds=300):
+    """One `daily`, given a deadline: a call that never returns must not stop tomorrow's."""
+    box = {}
+
+    def work():
+        try:
+            box["result"] = daily()
+        except Exception as e:  # noqa: BLE001
+            box["error"] = e
+
+    t = threading.Thread(target=work, daemon=True)
+    t.start()
+    t.join(seconds)
+    if t.is_alive():
+        raise TimeoutError(f"the daily review took more than {seconds} seconds")
+    if "error" in box:
+        raise box["error"]
+    return box["result"]
+
+
 def serve():
+    socket.setdefaulttimeout(60)
     kickoff.log("update review: waiting for the daily time")
+    threading.Thread(target=resume_when_ready, daemon=True).start()
     while True:
         try:
             now = local_now()
             state = load_state()
             if due(now.strftime("%H:%M"), now.strftime("%Y-%m-%d"), state.get("last_date"), review_time(options())):
-                result = daily()
+                result = attempt()
                 kickoff.log(f"update review: {json.dumps(result)}")
                 if result["sent"] or result.get("reason") == "nothing is waiting":
                     save_state(dict(load_state(), last_date=now.strftime("%Y-%m-%d")))
         except Exception as e:  # noqa: BLE001 - Home Assistant may still be starting; try again next minute
-            kickoff.log(f"update review: {e}")
+            kickoff.log(f"update review: {type(e).__name__}: {e}")
         time.sleep(60)
 
 
@@ -759,6 +910,10 @@ def main(argv):
             out = health(arg("--baseline"), [argv[i + 1] for i, a in enumerate(argv) if a == "--allow-repair"])
             print(json.dumps(out))
             return 0 if out["ok"] else 1
+        elif cmd == "approved" and len(argv) > 2:
+            out = approve(argv[2], arg("--session"))
+        elif cmd == "finish":
+            out = finish()
         elif cmd == "status":
             out = status()
         else:

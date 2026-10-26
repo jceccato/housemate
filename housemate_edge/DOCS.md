@@ -180,8 +180,11 @@ asks you twice, with a question you can answer from the phone: **install** (afte
 full backup, one update at a time with a health check after each) and **restart**
 (the host reboot after an OS update, the Core update, a restart for HACS, and
 Housemate's own update, which ends the chat). Give both up front ("do it all") or
-leave the restart to be asked. It stops at the first failure and never rolls
-back without asking. The procedure is `docs/how-to/update-home-assistant.md` in
+leave the restart to be asked. With both given, a reboot or Housemate's own update does not
+stop it: when the add-on starts again it continues the same chat by itself, and the chat is
+the one the panel reopens on. It stops at the first failure and never rolls back without
+asking. (The free Zen models have a usage limit: if one runs out mid-review, switch the
+provider or try again later; the review resumes from where it was.) The procedure is `docs/how-to/update-home-assistant.md` in
 your `/config`; edit it for your house.
 
 ## Protection mode

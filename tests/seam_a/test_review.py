@@ -53,7 +53,7 @@ class ReviewAddOn(VoiceAddOn):
         (fake / "registry.json").write_text(json.dumps([r for _, r in house]))
 
 
-class Review(unittest.TestCase):
+class Base:
     @classmethod
     def setUpClass(cls):
         cls.addon = ReviewAddOn({"provider": "zen", "api_key": "hm-test-key-0123456789abcdef",
@@ -88,6 +88,8 @@ class Review(unittest.TestCase):
     def opencode(self, path):
         return json.loads(self.addon.exec(f"curl -s http://127.0.0.1:4096{path}").stdout)
 
+
+class Review(Base, unittest.TestCase):
     def test_one_summary_covers_every_source(self):
         done = self.run_daily()
         self.assertTrue(done["sent"])
@@ -150,6 +152,21 @@ class Review(unittest.TestCase):
         after = len(self.calls("persistent_notification/create")) + len(self.calls("notify/mobile_app_test_phone"))
         self.assertEqual(before, after)
 
+    def test_an_option_changed_while_running_is_read_live(self):
+        """The Supervisor rewrites /data/options.json only at start: the review asks it instead."""
+        fake = self.addon.tmp / "fake" / "options.json"
+        original = fake.read_text()
+        fake.write_text(json.dumps(dict(json.loads(original), review_notify="notify.mobile_app_new_phone")))
+        try:
+            self.run_daily()
+        finally:
+            fake.write_text(original)
+        self.assertTrue(self.calls("notify/mobile_app_new_phone"))
+
+    def test_the_prepared_chat_is_marked_as_the_current_session(self):
+        sid = self.run_daily()["session_id"]
+        self.assertEqual(self.addon.exec("cat /config/.housemate/current-session").stdout.strip(), sid)
+
     def test_the_agent_is_given_the_procedure(self):
         a = self.addon
         skill = a.exec("cat /data/opencode/config/opencode/skills/update-review/SKILL.md").stdout
@@ -166,9 +183,77 @@ class Review(unittest.TestCase):
         self.assertEqual([u["kind"] for u in listed], ["os", "core", "addon", "hacs", "housemate", "other"])
 
 
+class ReviewResume(Base, unittest.TestCase):
+    """After a restart the review carries on by itself, but only with both approvals given."""
+
+    def opencode_messages(self, sid):
+        """OpenCode's server is not up yet for a moment after a restart: no messages until it is."""
+        try:
+            return self.opencode(f"/session/{sid}/message")
+        except Exception:  # noqa: BLE001
+            return []
+
+    def restart(self):
+        self.addon.restart()
+        self.wait_endpoint()
+
+    def helper(self, *args):
+        return json.loads(self.addon.exec("housemate-updates " + " ".join(args)).stdout)
+
+    def test_one_in_flight_with_both_approvals_is_continued_after_a_restart(self):
+        sid = self.run_daily()["session_id"]
+        self.assertEqual(self.helper("approved", "install")["session"], sid)
+        self.helper("approved", "restart")
+        before = len(self.opencode_messages(sid))
+        self.restart()
+        deadline = time.time() + 240
+        while time.time() < deadline and len(self.opencode_messages(sid)) <= before + 1:
+            time.sleep(1)
+        texts = [p["text"] for m in self.opencode_messages(sid) for p in m["parts"] if p["type"] == "text"]
+        self.assertTrue(any("do not ask" in t for t in texts), texts)
+        self.assertTrue(any(m["info"]["role"] == "assistant" for m in self.opencode_messages(sid)), "the model was asked")
+        steps = json.loads(self.addon.exec("cat /config/.housemate/updates/progress-*.json").stdout)
+        self.assertEqual([x["step"] for x in steps].count("resumed"), 1)
+        self.assertEqual(self.addon.exec("cat /config/.housemate/current-session").stdout.strip(), sid)
+        titles = [c["data"]["title"] for c in self.calls("persistent_notification/create")]
+        self.assertIn("Housemate is carrying on", titles)
+
+    def test_the_restart_approval_still_outstanding_waits(self):
+        self.addon.exec("rm -f /config/.housemate/updates/progress-*.json")
+        sid = self.run_daily()["session_id"]
+        self.helper("approved", "install")
+        before = len(self.opencode_messages(sid))
+        self.restart()
+        time.sleep(15)
+        self.assertEqual(len(self.opencode_messages(sid)), before, "nothing was sent to the chat")
+        steps = self.addon.exec("cat /config/.housemate/updates/progress-*.json").stdout
+        self.assertNotIn("resumed", steps)
+
+    def test_a_finished_review_is_not_continued(self):
+        self.addon.exec("rm -f /config/.housemate/updates/progress-*.json")
+        sid = self.run_daily()["session_id"]
+        for step in ("install", "restart"):
+            self.helper("approved", step)
+        self.helper("finish")
+        before = len(self.opencode_messages(sid))
+        self.restart()
+        time.sleep(15)
+        self.assertEqual(len(self.opencode_messages(sid)), before)
+
+    def test_only_the_add_on_itself_may_continue_a_session(self):
+        sid = self.run_daily()["session_id"]
+        before = len(self.opencode_messages(sid))
+        r = self.client("wget", "-qO-", "--header=Content-Type: application/json",
+                        f"--post-data={json.dumps({'text': 'x', 'resume_session': sid})}",
+                        f"http://{self.addon.name}:8765/kickoff")
+        self.assertNotEqual(r.returncode, 0, "refused")
+        time.sleep(3)
+        self.assertEqual(len(self.opencode_messages(sid)), before)
+
+
 # The waiting helpers are the voice tests': borrowed, not copied.
 for _name in ("client", "wait_endpoint", "warm_up"):
-    setattr(Review, _name, classmethod(getattr(test_voice.Voice, _name).__func__))
+    setattr(Base, _name, classmethod(getattr(test_voice.Voice, _name).__func__))
 
 
 if __name__ == "__main__":

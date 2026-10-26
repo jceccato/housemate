@@ -168,6 +168,15 @@ class Health(unittest.TestCase):
             self.assertIn(needle, text)
         self.assertNotIn("ERROR x", text, "the same fault, logged again, is not new")
 
+    def test_an_address_lost_or_not_answering_is_a_problem(self):
+        """Seen on the test VM: after the OS update it stopped answering on its address."""
+        base = dict(self.BASE, addresses=["10.0.0.5"])
+        self.assertEqual(updates.compare(base, self.now(addresses=["10.0.0.5"], reachable={"10.0.0.5": True}), True, ()), [])
+        lost = " ".join(updates.compare(base, self.now(addresses=["169.254.1.2"], reachable={"169.254.1.2": True}), True, ()))
+        self.assertIn("10.0.0.5", lost)
+        silent = " ".join(updates.compare(base, self.now(addresses=["10.0.0.5"], reachable={"10.0.0.5": False}), True, ()))
+        self.assertIn("does not answer", silent)
+
     def test_a_small_wander_in_unavailable_is_not_a_problem(self):
         self.assertEqual(updates.compare(self.BASE, self.now(unavailable=20), True, ()), [])
 
@@ -215,6 +224,40 @@ class Breaking(unittest.TestCase):
 
     def test_a_post_with_no_breaking_section_has_no_items(self):
         self.assertEqual(updates.breaking_items("<h2>Intro</h2><p>x</p>"), [])
+
+
+def approved(kind, session="ses_1"):
+    return {"step": "approved", "kind": kind, "session": session}
+
+
+class Resume(unittest.TestCase):
+    def test_both_approvals_and_updates_left_means_carry_on(self):
+        text = updates.resume_wanted([approved("install"), approved("restart")], True)
+        self.assertIn("do not ask", text)
+        self.assertIn("housemate-updates status", text)
+
+    def test_the_restart_still_outstanding_waits_as_before(self):
+        self.assertIsNone(updates.resume_wanted([approved("install")], True))
+        self.assertIsNone(updates.resume_wanted([], True))
+
+    def test_nothing_left_or_finished_means_nothing_to_do(self):
+        both = [approved("install"), approved("restart")]
+        self.assertIsNone(updates.resume_wanted(both, False))
+        self.assertIsNone(updates.resume_wanted(both + [{"step": "review finished"}], True))
+
+    def test_a_new_review_after_a_finished_one_starts_clean(self):
+        steps = [approved("install"), approved("restart"), {"step": "review finished"}, approved("install")]
+        self.assertEqual(updates.flight(steps)["restart"], False)
+        self.assertIsNone(updates.resume_wanted(steps, True))
+
+    def test_a_review_that_keeps_dying_is_left_to_the_person(self):
+        steps = [approved("install"), approved("restart")] + [{"step": "resumed"}] * updates.MAX_RESUMES
+        self.assertIsNone(updates.resume_wanted(steps, True))
+        self.assertIsNotNone(updates.resume_wanted(steps[:-1], True))
+
+    def test_the_session_is_the_one_the_approvals_named(self):
+        steps = [approved("install", "ses_a"), approved("restart", "ses_b")]
+        self.assertEqual(updates.flight(steps)["session"], "ses_b")
 
 
 if __name__ == "__main__":

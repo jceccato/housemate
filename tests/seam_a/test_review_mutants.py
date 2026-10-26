@@ -23,7 +23,7 @@ def failures_with(dockerfile_lines, test_name):
     harness.IMAGE = tag
     try:
         result = unittest.TestResult()
-        unittest.defaultTestLoader.loadTestsFromName(f"test_review.Review.{test_name}").run(result)
+        unittest.defaultTestLoader.loadTestsFromName((test_name if "." in test_name else f"test_review.Review.{test_name}")).run(result)
         return result.failures + result.errors
     finally:
         harness.IMAGE = saved
@@ -42,6 +42,13 @@ class ReviewMutants(unittest.TestCase):
         failed = failures_with(
             [f"RUN sed -i 's|{{\"noReply\": True, \"parts\"|{{\"parts\"|' {KICKOFF}"],
             "test_review_opens_a_briefed_chat_in_which_nothing_has_run",
+        )
+        self.assertTrue(failed)
+
+    def test_resuming_without_the_restart_approval_is_caught(self):
+        failed = failures_with(
+            [f"RUN sed -i 's|f\\[\"install\"\\] and f\\[\"restart\"\\] and|f[\"install\"] and|' {UPDATES}"],
+            "test_review.ReviewResume.test_the_restart_approval_still_outstanding_waits",
         )
         self.assertTrue(failed)
 

@@ -361,6 +361,27 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.reply(404, {"error": "not found"})
 
+    def resume(self, sid, text, target, title):
+        """Carry on an existing chat (the update review after a reboot). Only the add-on itself may:
+        a request from Core names no session of its own."""
+        if self.client_address[0] != "127.0.0.1":
+            return self.reply(403, {"error": "only the add-on continues a session"})
+        if not isinstance(sid, str) or not re.fullmatch(r"ses_[A-Za-z0-9]+", sid):
+            return self.reply(400, {"error": "resume_session is not a session id"})
+        try:
+            wait_for_opencode()
+            session = call("GET", f"{OPENCODE}/session/{sid}")
+            title = session.get("title") or title or "Housemate job"
+            track(sid, notify=target, title=title, waiting=False, busy=False, done=False)
+            mark_current(sid)
+            call("POST", f"{OPENCODE}/session/{sid}/prompt_async",
+                 {"parts": [{"type": "text", "text": text}], "system": JOB_BRIEF})
+        except Exception as e:  # noqa: BLE001
+            log(f"could not continue {sid}: {e}")
+            return self.reply(502, {"error": "OpenCode did not take the request"})
+        notify(sid, target, "Housemate is carrying on", f"{title}: the update review continues by itself.")
+        self.reply(202, {"session_id": sid, "resumed": True, "url": panel_url()})
+
     def do_POST(self):
         if self.path != "/kickoff":
             return self.reply(404, {"error": "not found"})
@@ -379,6 +400,9 @@ class Handler(BaseHTTPRequestHandler):
         if body.get("notify") and not target:
             return self.reply(400, {"error": "notify is not a notify service name"})
 
+        resume = body.get("resume_session")
+        if resume is not None:
+            return self.resume(resume, text, target, body.get("title"))
         prepare = body.get("prepare") is True
         is_admin, name = (False, None) if prepare else who_asked(body.get("user_id"))
         title = (body.get("title") or "Voice: " + text)[:70]
