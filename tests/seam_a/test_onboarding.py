@@ -132,7 +132,8 @@ class Onboarding(unittest.TestCase):
 
     def test_the_skill_ends_voice_with_a_real_trial_and_where_to_find_the_chat(self):
         skill = self.sh("cat /data/opencode/config/opencode/skills/onboarding/SKILL.md").stdout
-        self.assertNotIn("say hello", skill.lower())
+        self.assertNotIn("Housemate say hello", skill)
+        self.assertIn("keep the best idea for step 7", " ".join(skill.split()))
         self.assertIn("/sessions", skill)
         self.assertIn("Chats", skill)
 

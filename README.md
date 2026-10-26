@@ -37,8 +37,9 @@ anything can be undone with a sentence.
   overwritten.
 - **Guided first run**: the agent walks you through setup the first time you
   talk to it (model, git, a scan of your house, the phone to notify, an
-  optional private remote, the voice sentence) and builds one small automation
-  with you.
+  optional private remote, the voice sentence, which it installs and restarts
+  Home Assistant for only when you say yes to each) and builds one small
+  automation with you.
 - **Voice**: say "Housemate, build me ..." to Assist and a job starts in the
   chat; a notification tells you when it needs you or is done.
 - **A daily update review**: one notification covers everything waiting (Home
