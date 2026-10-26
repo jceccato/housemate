@@ -40,6 +40,10 @@ jobs:
         # Staging and applying kit changes (bash and jq, no container).
         run: python3 -I -m unittest discover -s tests/kit -v
 
+      - name: Run the panel tests
+        # Putting a waiting question to a panel that opened late (no container).
+        run: python3 -I -m unittest discover -s tests/panel -v
+
   seam-a:
     # Seam A: build the image, start it the way the Supervisor would (fixture
     # /config, /data and options; a stand-in Supervisor API), and assert what

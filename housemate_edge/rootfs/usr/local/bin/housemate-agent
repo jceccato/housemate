@@ -12,7 +12,16 @@
 # which chat it holds, so a chat marked since (a voice job, the update review)
 # is not hidden behind an older OpenCode left running. After an add-on restart
 # there is no tmux session, so the same call starts OpenCode on the marked chat.
+#
+# The chat is OpenCode attached to the add-on's own OpenCode server (port 4096),
+# the one a job started by voice or by the update review runs in. A standalone
+# OpenCode keeps its own copy of what is pending, so it could never show a question
+# that server's chat asks. When the panel opens a chat that already has a question
+# waiting, reopen_question.py has the agent ask it again, so that this panel shows it
+# (OpenCode only shows a question to a client attached when it is asked).
 set -o nounset
+
+server="${HOUSEMATE_OPENCODE_URL:-http://127.0.0.1:4096}"
 
 current_file="${HOUSEMATE_CURRENT_SESSION:-/config/.housemate/current-session}"
 cd /config || exit 1
@@ -44,6 +53,26 @@ case "${1:-}" in
         key="s-${newest}" ;;
     *) echo "usage: housemate-agent [--new | --session ID]" >&2; exit 2 ;;
 esac
+
+# Attach to the server when it answers (a start right after a restart waits a
+# little for it); if it never does, a standalone OpenCode still gives a working chat.
+for _ in $(seq 1 20); do
+    curl -fsS --max-time 2 -o /dev/null "${server}/session" 2> /dev/null && break
+    sleep 1
+done
+reopen=""
+if curl -fsS --max-time 2 -o /dev/null "${server}/session" 2> /dev/null; then
+    case "${cmd[*]}" in
+        "opencode --session "*) reopen="${cmd[2]}"; cmd=(opencode attach "${server}" --session "${cmd[2]}") ;;
+        "opencode --continue") cmd=(opencode attach "${server}" --continue) ;;
+        "opencode") cmd=(opencode attach "${server}") ;;
+    esac
+fi
+# Only a panel that is opening now needs the question put again; one already
+# showing the chat has seen it asked.
+if [[ -n "${reopen}" ]] && ! tmux -L housemate has-session -t "=${key}" 2> /dev/null; then
+    (sleep 6; python3 /usr/lib/housemate/reopen_question.py "${server}" "${reopen}") > /dev/null 2>&1 &
+fi
 
 # When OpenCode quits, the tab stays a shell. The TMUX variable is cleared so
 # that a tab opened from inside another session still starts its own.

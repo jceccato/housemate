@@ -90,7 +90,7 @@ def launcher_problems(addon):
 
 
 def count_opencode(addon):
-    r = addon.exec("for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null; echo; done | grep -c '^opencode --session \\|^opencode --continue\\|^opencode $'", check=False)
+    r = addon.exec("for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null; echo; done | grep -c '^opencode attach http[^ ]* --session \\|^opencode attach http[^ ]* --continue\\|^opencode attach http[^ ]* $'", check=False)
     return int(r.stdout.strip() or 0)
 
 
@@ -144,7 +144,7 @@ def the_chat_the_panel_opens(addon):
     docker("exec", addon.name, "tmux", "-L", "housemate", "kill-server", check=False)
     open_panel(addon)
     time.sleep(8)
-    r = addon.exec("for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null; echo; done | grep -a '^opencode --session\\|^opencode $'")
+    r = addon.exec("for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null; echo; done | grep -a '^opencode attach http[^ ]* --session\\|^opencode attach http[^ ]* $'")
     return r.stdout.strip()
 
 
