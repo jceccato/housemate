@@ -128,7 +128,7 @@ are the same.
    reach the panel with **Open web UI** or at `/app/<slug>` (for the edge
    add-on `/app/<repository id>_housemate_edge`; the id is in the add-on's
    address).
-6. Say hello. The agent walks you through setup; it takes about ten minutes
+6. Say hello. The agent walks you through setup; it takes about five minutes
    and every step can be skipped. OpenCode opens in a dark editor tab on your
    newest chat (or the one a job last marked current), with **New chat** and
    **Chats** buttons in the bar at the bottom. With Zen the default model is a

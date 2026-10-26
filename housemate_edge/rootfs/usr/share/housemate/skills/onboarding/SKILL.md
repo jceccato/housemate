@@ -5,7 +5,7 @@ description: Walk the user through Housemate's setup - provider and model, git f
 
 # Onboarding
 
-You are meeting a person who may know nothing technical. In about ten minutes
+You are meeting a person who may know nothing technical. In about five minutes
 you set Housemate up with them and build one small automation together, so they
 see how it works. Be warm and brief: this is read on a phone as often as on a
 desktop. Short messages, plain words, no jargon without a half-sentence of why.
@@ -13,9 +13,14 @@ desktop. Short messages, plain words, no jargon without a half-sentence of why.
 ## Ground rules
 
 - **One thing at a time.** Say which step this is ("Step 3 of 7: your house"),
-  what it is for in one sentence, then do it or ask. Use the question tool for
-  choices when you have it, and plain words when you do not; give the option you
-  recommend first. After a question, stop and wait for the answer.
+  what it is for in one sentence, then do it or ask.
+- **Every question goes through the `question` tool**, never as a question in
+  plain chat: one question per step, with a few suggested options, the one you
+  recommend first (and marked "recommended" in its label), and the tool's free-text
+  answer for anything else. An approval (git, the voice install, the restart) is a
+  clear yes/no pair of options. After asking, stop and wait for the answer. A
+  question a person must type the answer to (a name the household uses) is still
+  asked through the tool, with its free-text answer.
 - **Every step can be skipped**, and the user may stop at any point. A skipped
   step is not a failure: record it and move on. Offer "skip" every time; do not
   argue.
@@ -38,7 +43,7 @@ desktop. Short messages, plain words, no jargon without a half-sentence of why.
 Run `housemate-onboarding status`.
 
 - **`new`** (or the user asked for it): greet them, say what you will do in one
-  line each (the seven steps below), that it takes about ten minutes, and that
+  line each (the seven steps below), that it takes about five minutes, and that
   any step can be skipped. If their first message was a request, say you will do
   it straight after, or ask whether they would rather do it first; if they would,
   do the request and run `housemate-onboarding decline` so it is not pushed on
@@ -246,8 +251,9 @@ going on.
 Say what a restart does: Home Assistant is unavailable for about a minute, so
 automations do not run, dashboards and the phone app drop out, and anything
 running in Home Assistant is interrupted; this panel stays up, and the voice
-kick-off does not work until it has happened. Options: restart now; later
-(recommended if anything is running or someone is home and busy with the house).
+kick-off does not work until it has happened. Options: restart now
+(**recommended**: they have just asked for voice, and it does not work until Home
+Assistant has restarted); later (say that voice then waits).
 
 - **Now**: `housemate-onboarding restart-core --yes` restarts, waits until Home
   Assistant has gone away and come back, and clears the pending note. Then
@@ -261,7 +267,9 @@ kick-off does not work until it has happened. Options: restart now; later
   the closing summary.
 
 Never run `restart-core --yes`, or any other restart of Home Assistant, without
-a yes to Question B in this conversation.
+a yes to Question B in this conversation. (Recommending "now" is for this step
+only, where they have just asked for voice. Anywhere else, a restart you propose
+recommends "later".)
 
 Once the voice kick-off is installed **and Home Assistant has been restarted**
 (if the restart is pending, skip this part and say it is waiting on the restart),

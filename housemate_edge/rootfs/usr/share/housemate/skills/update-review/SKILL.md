@@ -19,7 +19,9 @@ and follow it. The helper is `housemate-updates`.
    each needs from them. Read each item the helper marks `yes` or `general` in full,
    and check the YAML and custom components in `/config` yourself. Change
    nothing yet.
-2. **Ask for the two approvals** with the `question` tool, as the how-to says:
+2. **Ask for the two approvals** with the `question` tool (a clear choice, the
+   recommended option first, a restart recommending "ask before restarting" so that nothing
+   restarts by surprise), as the how-to says:
    install, and restart. Offer "do it all" (both), "install now, ask before
    restarting", and "not now". Record each one the moment it is given:
    `housemate-updates approved install` and `housemate-updates approved restart`.

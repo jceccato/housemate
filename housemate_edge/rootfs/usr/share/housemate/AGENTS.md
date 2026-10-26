@@ -23,6 +23,11 @@ directory. These rules ship with the add-on and update with it. The user's own
   `!secret`, and do not display or copy the values.
 - Say what you changed and why when you finish. If you are unsure whether a
   change is safe, say so and ask before making it.
+- **Ask through the `question` tool**, not in plain chat: one question at a time,
+  a few suggested options with the recommended one first, and the tool's free-text
+  answer for anything else. An approval is a clear yes/no. A restart of Home
+  Assistant that you propose recommends "later" (a lived-in house is not
+  restarted by surprise); only onboarding's voice step recommends "now".
 
 ## Incoming kit changes
 
