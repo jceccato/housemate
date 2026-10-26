@@ -109,7 +109,12 @@ about ten minutes and every step can be skipped: the model provider and key, put
 under git, a scan of your entities, areas and devices into the cheat sheet (with
 the names you use for things), the phone to notify, an optional private remote
 (and GitHub Issues for bigger jobs if you link one), the voice sentence
-("Housemate, build me ...", only with your OK) and the first automation. If you
+("Housemate, build me ...", installed only with your OK, and Home Assistant is
+restarted only if you say so: two separate questions, and "later" leaves a note
+of the pending restart) and the first automation. After the voice step it suggests
+a useful request to try, built from your own house, and shows where voice jobs
+appear: the panel opens on the newest chat, the **Chats** button in the status
+bar lists the others, and `/sessions` in OpenCode does the same. If you
 have no phone registered with Home Assistant, that step is skipped and
 notifications appear in Home Assistant itself. Say "run onboarding" at any time
 to repeat a step. Progress is kept in `/config/.housemate/onboarding.json`; the
