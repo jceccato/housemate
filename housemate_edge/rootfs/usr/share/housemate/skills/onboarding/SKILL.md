@@ -184,9 +184,14 @@ Mark the step done, or skipped with the reason.
 
 Explain: they can say a sentence to Assist ("Housemate, build me a night light
 for the hall") and a job starts in this chat; their phone buzzes when it needs
-them or is done. It adds an automation, a small file and a line in
-`configuration.yaml`, and Home Assistant restarts once (about a minute; this
-panel stays up). Ask for their OK. If no, mark `skipped`.
+them or is done. Installing it adds a blueprint, a small file, a line in
+`configuration.yaml` and an automation. Home Assistant only picks the new action
+up after a restart, but the restart is a **separate question, asked later**.
+
+**Question A, with the question tool: install the voice kick-off?** Options:
+yes, install it (recommended); skip for now. Say in the question that nothing
+restarts yet. Never fold the restart into this question or its option labels.
+On no, mark `voice` skipped and go on to step 7.
 
 On a yes:
 
@@ -219,26 +224,38 @@ automation:
         notify_service: notify.mobile_app_<their phone>   # "" if no phone
 ```
 
-Use the service you kept in step 4, or an empty string if there was none. Then
-`scripts/check-config.sh`; if the check fails, fix it before going further. With
-the check passing, restart Home Assistant **once**, and wait for it properly: it
-keeps answering for a few seconds after the request, so wait until it has gone
-away and come back.
+Use the service you kept in step 4, or an empty string if there was none. Commit
+the files (`housemate_rest_command.yaml`, the blueprint, `configuration.yaml`, the
+package) with a why. Then run the configuration check and tell them the result:
 
 ```bash
-auth="Authorization: Bearer $SUPERVISOR_TOKEN"
-curl -fsS -X POST -H "$auth" http://supervisor/core/restart > /dev/null
-sleep 20
-for i in $(seq 1 60); do
-  curl -fsS -m 5 -H "$auth" http://supervisor/core/api/ > /dev/null 2>&1 && { echo back; break; }
-  sleep 5
-done
+housemate-onboarding restart-core
 ```
 
-Then confirm the action exists:
-`curl -fsS -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/api/services | jq -e '.[] | select(.domain=="rest_command") | .services.housemate_kickoff'`.
-Commit the files (`housemate_rest_command.yaml`, the blueprint, `configuration.yaml`,
-the package) with a why.
+With no flag it only checks the configuration and, if valid, records that a
+restart is pending. It never restarts. If the check fails, fix the cause before
+going on.
+
+**Question B, with the question tool: restart Home Assistant now, or later?**
+Say what a restart does: Home Assistant is unavailable for about a minute, so
+automations do not run, dashboards and the phone app drop out, and anything
+running in Home Assistant is interrupted; this panel stays up, and the voice
+kick-off does not work until it has happened. Options: restart now; later
+(recommended if anything is running or someone is home and busy with the house).
+
+- **Now**: `housemate-onboarding restart-core --yes` restarts, waits until Home
+  Assistant has gone away and come back, and clears the pending note. Then
+  confirm the action exists:
+  `curl -fsS -H "Authorization: Bearer $SUPERVISOR_TOKEN" http://supervisor/core/api/services | jq -e '.[] | select(.domain=="rest_command") | .services.housemate_kickoff'`.
+- **Later**: do not restart. Mark the step done with the note `restart pending`
+  (`housemate-onboarding step voice done "installed; restart pending"`), tell
+  them plainly that voice will not work until Home Assistant is restarted, and
+  how: ask you ("restart Home Assistant"), or Settings, System, Restart. The
+  pending restart shows in `housemate-onboarding status`; mention it again in
+  the closing summary.
+
+Never run `restart-core --yes`, or any other restart of Home Assistant, without
+a yes to Question B in this conversation.
 
 Tell them two things: they can try it by typing "Housemate say hello" into Assist
 (the chat icon in Home Assistant), and a request spoken from a satellite that
