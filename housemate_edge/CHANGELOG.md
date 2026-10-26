@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.38
+
+- Open the marked chat in front; start onboarding by itself on the first open (#40)
+
 ## 0.1.37
 
 - The panel re-asks a waiting question when chats are switched; restart recommendation (#39)
