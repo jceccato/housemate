@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.36
+
+- The panel attaches to the add-on's OpenCode server and has a waiting question asked again (#38)
+
 ## 0.1.35
 
 - Onboarding: five minutes, questions through the question tool, restart recommends now (#37)
