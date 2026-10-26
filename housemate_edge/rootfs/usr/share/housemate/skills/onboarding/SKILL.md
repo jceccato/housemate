@@ -20,7 +20,8 @@ desktop. Short messages, plain words, no jargon without a half-sentence of why.
   step is not a failure: record it and move on. Offer "skip" every time; do not
   argue.
 - **Record each step as it settles**, so a re-run knows where things stand:
-  `housemate-onboarding step <name> done|skipped "<a few words>"` (the words are
+  `housemate-onboarding step <name> done|skipped "<a few words>"` (it answers with
+  that one step, so do not follow it with `status`; the words are
   saved and shown: never a secret, a token or an address with a password in it). The names, in
   order: `provider`, `git`, `scan`, `phone`, `remote`, `voice`, `automation`.
   `housemate-onboarding status` shows them.
@@ -257,10 +258,25 @@ kick-off does not work until it has happened. Options: restart now; later
 Never run `restart-core --yes`, or any other restart of Home Assistant, without
 a yes to Question B in this conversation.
 
-Tell them two things: they can try it by typing "Housemate say hello" into Assist
-(the chat icon in Home Assistant), and a request spoken from a satellite that
-cannot tell who is speaking, or from someone who is not an administrator, does
-not run: it waits in this chat for an administrator to say go.
+Once the voice kick-off is installed **and Home Assistant has been restarted**
+(if the restart is pending, skip this part and say it is waiting on the restart),
+tell them three things, briefly:
+
+1. **A trial that builds something real.** Do not suggest a "say hello" test.
+   Suggest one sentence to type into Assist (the chat icon in Home Assistant, or
+   by voice), starting "Housemate, ...", asking for a common, useful automation
+   made from their own house as the cheat sheet now describes it: a night light
+   from a real light and a motion or presence sensor, a reminder to their phone,
+   an away mode that switches off named lights, and so on, naming real entities in
+   their words. Pick one that is **not** the one you will build together in step 7
+   (keep the best idea for step 7), and say so. With a near-empty house, suggest a
+   reminder to their phone.
+2. **Where the job appears.** The job is a chat in this panel. The panel opens on
+   the newest one by itself; the **Chats** button in the status bar lists the
+   others, and typing `/sessions` in OpenCode does the same.
+3. A request spoken from a satellite that cannot tell who is speaking, or from
+   someone who is not an administrator, does not run: it waits in this chat for an
+   administrator to say go.
 
 ## 7. A first automation, together  (`automation`)
 

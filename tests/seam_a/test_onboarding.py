@@ -125,6 +125,17 @@ class Onboarding(unittest.TestCase):
         self.assertIn("restart-core --yes", skill)
         self.assertNotIn("curl -fsS -X POST -H \"$auth\" http://supervisor/core/restart", skill)
 
+    def test_a_step_answers_with_itself_and_status_with_the_list_once(self):
+        out = self.sh("housemate-onboarding step remote skipped 'not now'").stdout
+        self.assertEqual(out.strip(), "remote: skipped")
+        self.assertEqual(self.sh("housemate-onboarding status").stdout.count("onboarding:"), 1)
+
+    def test_the_skill_ends_voice_with_a_real_trial_and_where_to_find_the_chat(self):
+        skill = self.sh("cat /data/opencode/config/opencode/skills/onboarding/SKILL.md").stdout
+        self.assertNotIn("say hello", skill.lower())
+        self.assertIn("/sessions", skill)
+        self.assertIn("Chats", skill)
+
     def test_progress_is_kept_out_of_git(self):
         self.sh("housemate-onboarding step git done 'tracked'")
         self.sh("chown -R root:root /config")  # as in the real add-on

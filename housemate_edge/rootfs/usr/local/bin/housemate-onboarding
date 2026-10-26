@@ -337,7 +337,7 @@ def main(argv):
         cmd_status()
     elif cmd == "step" and len(rest) >= 2:
         set_step(rest[0], rest[1], " ".join(rest[2:]))
-        cmd_status()
+        print(f"{rest[0]}: {rest[1]}")
     elif cmd == "scan":
         cmd_scan("--dry-run" in rest)
     elif cmd == "review-notify" and len(rest) == 1:
