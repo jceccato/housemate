@@ -19,6 +19,18 @@ published on every merge to `main`, for testers and the maintainer's own Home
 Assistant. It can be installed beside **stable**. _Avoid_: "beta", "nightly",
 "latest" (there is no `latest` tag).
 
+**Frontier**
+The tickets the orchestrator may work next: every one that is `ready-for-agent`
+or `ready-for-human` (a ticket with a **gate**) and whose blockers are all
+`resolved`. It takes the lowest number first. _Avoid_: "queue", "backlog".
+
+**Gate**
+A step in a ticket that only the user can take: signing in to a service, a
+secret to paste, an approval, a choice that is theirs. The agent works the
+ticket up to the gate, prepares exactly what the user needs, stops and waits;
+it never guesses past a gate or does the user's part. _Avoid_: "blocker" (that
+is another ticket, not a person).
+
 **Incoming**
 The folder (`/config/.housemate/incoming/`) where the add-on stages each **kit** file that changed
 in a newer image, with release notes. The agent reviews it with the user by a

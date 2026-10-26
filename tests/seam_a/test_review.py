@@ -204,14 +204,19 @@ class ReviewResume(Base, unittest.TestCase):
         sid = self.run_daily()["session_id"]
         self.assertEqual(self.helper("approved", "install")["session"], sid)
         self.helper("approved", "restart")
-        before = len(self.opencode_messages(sid))
         self.restart()
+        # Wait on the resume having been sent to the chat (the user's own message is stored when
+        # OpenCode accepts it), never on a model's reply: how long a model takes is not under test.
         deadline = time.time() + 240
-        while time.time() < deadline and len(self.opencode_messages(sid)) <= before + 1:
+        texts = []
+        while time.time() < deadline and not any("do not ask" in t for t in texts):
             time.sleep(1)
-        texts = [p["text"] for m in self.opencode_messages(sid) for p in m["parts"] if p["type"] == "text"]
+            texts = [p["text"] for m in self.opencode_messages(sid) for p in m["parts"] if p["type"] == "text"]
         self.assertTrue(any("do not ask" in t for t in texts), texts)
-        self.assertTrue(any(m["info"]["role"] == "assistant" for m in self.opencode_messages(sid)), "the model was asked")
+        while time.time() < deadline and '"resumed"' not in self.addon.exec(
+                "cat /config/.housemate/updates/progress.json", check=False).stdout:
+            time.sleep(1)
+        time.sleep(1)  # the record is written in one go just after the notification
         steps = json.loads(self.addon.exec("cat /config/.housemate/updates/progress.json").stdout)
         self.assertEqual([x["step"] for x in steps].count("resumed"), 1)
         self.assertEqual(self.addon.exec("cat /config/.housemate/current-session").stdout.strip(), sid)

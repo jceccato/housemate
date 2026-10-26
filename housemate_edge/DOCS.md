@@ -48,8 +48,20 @@ The key is written to OpenCode's provider configuration when the add-on starts.
 Besides the add-on's own private options and data, it is not put in the logs,
 on a command line, or in your `/config`. Restart the add-on after changing an option.
 
-OpenCode Go limits requests to an allowlist of IP addresses. If calls start
-failing after your home address changes, check the allowlist on your account.
+### What it costs
+
+Housemate is free. The model provider charges for the model's use:
+
+- **OpenCode Go** is a subscription. Its default model is
+  `opencode-go/deepseek-v4.1-flash`.
+- **OpenCode Zen** is pay-as-you-go. It also offers some **free models**, which
+  are the way to try Housemate before spending anything. They are limited-time,
+  they come and go, and they have a **usage limit**: a long job can stop
+  partway when one runs out. Switch provider or model, or wait, then tell the
+  agent to continue.
+
+Prices and which models are free are on [opencode.ai](https://opencode.ai) and
+are not Housemate's to set.
 
 ## What persists
 
@@ -190,8 +202,65 @@ your `/config`; edit it for your house.
 ## Protection mode
 
 Docker access is declared but stays off while the add-on's **Protection mode**
-is on, which is the default. Turn it off only if you understand that the agent
-then has root-level reach into the host.
+is on, which is the default. Leave it on: Housemate does its work through Home
+Assistant's API, the Supervisor's API and `/config`, none of which needs Docker.
+
+Turn it off only if you want the agent to manage containers on the host, and
+understand the risk. It then has root-level reach into the host through Docker:
+it can read other add-ons' data and change or break anything on the machine,
+far beyond your configuration, and git and backups of `/config` do not cover
+that. A model can be wrong or be misled by text it reads. To change it, use the
+**Protection mode** switch on the add-on's Info page and restart the add-on.
+
+## Troubleshooting
+
+Work down this list.
+
+1. **Go: calls fail, or nothing answers.** OpenCode Go keys can be limited to an
+   **allowlist of IP addresses**. If your home address changed, the key is
+   still valid but calls from the new address are refused. Check the allowlist
+   on your account at [opencode.ai](https://opencode.ai) first.
+2. **The key.** It must be pasted whole into the Configuration tab, and the
+   add-on restarted after saving: it is read at start.
+3. **A Zen free model stops partway.** It reached its usage limit. Switch
+   provider or model, or try later, then tell the agent to continue.
+4. **"Cannot reconnect" after a restart.** The page reloads itself when the
+   add-on is back; give it a minute.
+5. **Not in the sidebar.** It was hidden. Use **Open web UI** on the add-on's
+   page, or turn **Show in sidebar** back on.
+6. **An "insecure context" notice from the editor.** Over plain `http` the
+   editor shows it and no setting hides it. It is harmless; HTTPS (Home
+   Assistant's own, or Nabu Casa's) removes it.
+
+## What to send when something breaks
+
+Open an issue at <https://github.com/jceccato/housemate/issues> with, redacted:
+
+- **The add-on's log**: the **Log** tab, from the first lines after the start
+  and the lines around the failure.
+- **The versions**: the add-on (stable or edge, and its version, on the Info
+  page), Home Assistant Core, OS and Supervisor, and your hardware (amd64 or
+  aarch64; Green, Yellow, Pi, VM).
+- **What you asked** the agent and what it did or said instead, and the model
+  provider and model you use.
+
+**Never paste an API key, a token or your `secrets.yaml`.** Read the log
+through before posting it. A security problem goes to the repository's
+`SECURITY.md` privately, not into a public issue.
+
+## Support
+
+Best-effort. Housemate is maintained by one person in their spare time. Issues
+are read, but there is no promise of a reply time or a fix.
+
+## Stable and edge
+
+**Housemate** is a build that **Housemate (edge)** has run and the maintainer
+has promoted, with release notes. **Housemate (edge)** is the newest build and
+may change or break between releases; both can be installed side by side. Both
+images are built for amd64 and aarch64 and tested on each in CI, on a runner of
+that architecture. No real Green, Yellow or Raspberry Pi has run Housemate yet,
+so reports from those are welcome.
 
 ## Versions
 
