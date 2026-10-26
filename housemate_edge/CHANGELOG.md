@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.29
+
+- DOCS: say how soon the panel reloads after a restart (#31)
+- Reload the panel when the add-on has started afresh, not after a count of failures (#30)
+
 ## 0.1.28
 
 - Load the reconnect helper from the Ingress prefix (#29)
