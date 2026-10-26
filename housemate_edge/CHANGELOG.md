@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.28
+
+- Load the reconnect helper from the Ingress prefix (#29)
+
 ## 0.1.27
 
 - Update review: approvals do not outlive a stop or a quiet day; one progress file per review (#27)
