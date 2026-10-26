@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.30
+
+- Write the README and Docs tab for strangers; make the resume test deterministic (#32)
+
 ## 0.1.29
 
 - DOCS: say how soon the panel reloads after a restart (#31)
