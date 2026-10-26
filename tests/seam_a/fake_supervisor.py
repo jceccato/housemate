@@ -95,6 +95,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(load("states.json", []))
         elif self.path == "/core/api/config":
             self.send_json({"state": "RUNNING", "version": "2026.10.4", "time_zone": "UTC"})
+        elif self.path == "/core/api/":
+            self.send_json({"message": "API running."})
         elif self.path == "/_calls":
             with LOCK:
                 self.send_json(CALLS)
@@ -118,6 +120,10 @@ class Handler(BaseHTTPRequestHandler):
                 CALLS.append({"service": "addons/self/options", "data": json.loads(body or b"{}"),
                               "authorized": self.headers.get("Authorization", "").startswith("Bearer ")})
             self.send_json({"result": "ok", "data": {}})
+        elif self.path == "/core/restart":
+            with LOCK:
+                CALLS.append({"service": "core/restart", "data": {}})
+            self.send_json({"result": "ok"})
         elif self.path == "/core/api/config/core/check_config":
             self.send_json({"result": "valid", "errors": None})
         else:

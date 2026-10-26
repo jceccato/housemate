@@ -9,6 +9,7 @@ calls for the parts that are code, not conversation.
     housemate-onboarding scan [--dry-run]       entities, areas and devices into the cheat sheet
     housemate-onboarding phones                 the notify services of companion-app phones
     housemate-onboarding review-notify SERVICE  set the add-on option review_notify (the daily review's phone) and mark the phone step done
+    housemate-onboarding restart-core [--yes]   check the configuration; restart Home Assistant only with --yes
     housemate-onboarding decline                the user does not want it now: stop offering it on its own
     housemate-onboarding reset                  forget progress (the skill re-runs from the top)
 
@@ -249,9 +250,52 @@ def phones():
 
 # -- commands -----------------------------------------------------------------------------
 
+def core_call(method, path, body=None, timeout=60):
+    import urllib.request
+    base = os.environ.get("HOUSEMATE_SUPERVISOR_URL", "http://supervisor")
+    if not os.environ.get("SUPERVISOR_TOKEN"):
+        raise SystemExit("SUPERVISOR_TOKEN is not set: run this inside the Housemate add-on")
+    req = urllib.request.Request(base + path, data=body, method=method,
+                                 headers={"Authorization": "Bearer " + os.environ["SUPERVISOR_TOKEN"]})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read()
+
+
+def cmd_restart_core(confirmed):
+    """Check the configuration. Restart Core only when the user has said yes (--yes); otherwise note it as pending."""
+    import time
+    result = json.loads(core_call("POST", "/core/api/config/core/check_config") or b"{}").get("result")
+    print(f"Configuration check: {result}")
+    if result != "valid":
+        raise SystemExit("The configuration is not valid; not restarting. Fix it first.")
+    data = load_state()
+    if not confirmed:
+        data["restart_pending"] = True
+        save_state(data)
+        print("Not restarting: the user has not said yes. A restart is recorded as pending.")
+        return
+    core_call("POST", "/core/restart")
+    wait = int(os.environ.get("HOUSEMATE_RESTART_WAIT", "20"))
+    time.sleep(wait)  # it keeps answering for a few seconds after the request
+    for _ in range(60):
+        try:
+            core_call("GET", "/core/api/", timeout=5)
+            break
+        except OSError:
+            time.sleep(min(5, max(wait, 1)))
+    else:
+        raise SystemExit("Home Assistant did not come back within about five minutes; look at it before going on.")
+    data = load_state()
+    data.pop("restart_pending", None)
+    save_state(data)
+    print("Home Assistant restarted and is answering.")
+
+
 def cmd_status():
     data = load_state()
     print(f"onboarding: {overall(data)}")
+    if data.get("restart_pending"):
+        print("  a Home Assistant restart is pending (the voice kick-off needs it)")
     for s in STEPS:
         step = data["steps"].get(s, {})
         note = f" - {step['note']}" if step.get("note") else ""
@@ -303,6 +347,8 @@ def main(argv):
     elif cmd == "phones":
         found = phones()
         print("\n".join(found) if found else "No companion-app phone is registered with Home Assistant.")
+    elif cmd == "restart-core":
+        cmd_restart_core("--yes" in rest)
     elif cmd == "decline":
         data = load_state()
         data["declined"] = True

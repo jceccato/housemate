@@ -99,6 +99,32 @@ class Onboarding(unittest.TestCase):
         self.assertEqual(live["review_notify"], "notify.mobile_app_test_phone")  # the review reads this file
         self.assertIn("phone: done - notify.mobile_app_test_phone", self.sh("housemate-onboarding status").stdout)
 
+    def restarts(self):
+        calls = json.loads(self.sh("curl -s http://supervisor/_calls").stdout)
+        return [c for c in calls if c["service"] == "core/restart"]
+
+    def test_core_is_never_restarted_without_the_users_yes(self):
+        out = self.sh("housemate-onboarding restart-core").stdout
+        self.assertIn("Configuration check: valid", out)
+        self.assertIn("Not restarting", out)
+        self.assertEqual(self.restarts(), [])
+        self.assertIn("restart is pending", self.sh("housemate-onboarding status").stdout)
+
+    def test_core_restarts_once_when_told_yes_and_the_pending_note_clears(self):
+        self.sh("housemate-onboarding restart-core")
+        self.assertEqual(self.restarts(), [])
+        out = self.sh("HOUSEMATE_RESTART_WAIT=1 housemate-onboarding restart-core --yes").stdout
+        self.assertIn("restarted", out)
+        self.assertEqual(len(self.restarts()), 1)
+        self.assertNotIn("restart is pending", self.sh("housemate-onboarding status").stdout)
+
+    def test_the_skill_asks_install_and_restart_as_two_questions(self):
+        skill = self.sh("cat /data/opencode/config/opencode/skills/onboarding/SKILL.md").stdout
+        self.assertIn("Question A", skill)
+        self.assertIn("Question B", skill)
+        self.assertIn("restart-core --yes", skill)
+        self.assertNotIn("curl -fsS -X POST -H \"$auth\" http://supervisor/core/restart", skill)
+
     def test_progress_is_kept_out_of_git(self):
         self.sh("housemate-onboarding step git done 'tracked'")
         self.sh("chown -R root:root /config")  # as in the real add-on
