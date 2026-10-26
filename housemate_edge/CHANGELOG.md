@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.34
+
+- Small fixes: trim api_key and base_url, Zen needs no key, atomic progress write (#35)
+
 ## 0.1.33
 
 - Kit changelog: describe kit version 1 as shipped (#36)
