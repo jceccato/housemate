@@ -73,7 +73,7 @@ are not Housemate's to set.
   chat-completions API. It is **untested** against real services; Housemate's
   tests only drive it against a stand-in server. Fill three options:
   `base_url` (the part before `/chat/completions`, for example
-  `https://openrouter.ai/api/v1` for OpenRouter or `http://192.168.1.50:8000/v1`
+  `https://openrouter.ai/api/v1` for OpenRouter or `http://my-server.local:8000/v1`
   for a server you run), `api_key` (empty for a local server that needs none) and
   `model` (**required**: the model id exactly as the endpoint names it, for
   example `deepseek/deepseek-chat`). Restart the add-on. If `base_url` or `model`

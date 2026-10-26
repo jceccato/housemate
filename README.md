@@ -75,7 +75,7 @@ options and data, it is not put in a log, on a command line or in your `/config`
 
 | `provider` option | Status | Notes |
 | ----------------- | ------ | ----- |
-| `go` (**recommended**) | **Tested.** Housemate's end-to-end tests and its maintainers use **DeepSeek V4.1 Flash on OpenCode Go**, the default model. | A subscription from [opencode.ai](https://opencode.ai). |
+| `go` (**recommended**) | **Tested.** Housemate's end-to-end tests and its maintainer use **DeepSeek V4.1 Flash on OpenCode Go**, the default model. | A subscription from [opencode.ai](https://opencode.ai). |
 | `zen` | Works; free models are untested over long jobs. | Pay as you go, plus **free models** with a usage limit. |
 | `openai-compatible` | **Untested** against real services. Housemate's tests drive it against a stand-in server only. | Any endpoint that speaks the OpenAI chat-completions API. |
 
@@ -83,7 +83,7 @@ For `openai-compatible`, fill three options in the Configuration tab:
 
 - `base_url`: the endpoint's base URL, the part before `/chat/completions`.
   For example `https://openrouter.ai/api/v1` for OpenRouter, or
-  `http://192.168.1.50:8000/v1` for a server you run yourself (vLLM, llama.cpp,
+  `http://my-server.local:8000/v1` for a server you run yourself (vLLM, llama.cpp,
   Ollama's `/v1`). It must start with `http://` or `https://`.
 - `api_key`: your key at that service. Leave it empty for a local server that
   needs none.

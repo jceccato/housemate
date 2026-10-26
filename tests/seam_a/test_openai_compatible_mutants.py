@@ -1,4 +1,4 @@
-"""The openai-compatible tests must be able to fail: break the image two ways and check they notice."""
+"""The openai-compatible tests must be able to fail: break the image three ways and check they notice."""
 
 import unittest
 

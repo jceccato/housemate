@@ -4,13 +4,13 @@ configuration:
     description: go for OpenCode Go (tested), zen for OpenCode Zen, or openai-compatible for any OpenAI-style endpoint (untested; needs base_url and model).
   base_url:
     name: Base URL (openai-compatible only)
-    description: The endpoint's OpenAI-style base URL, for example https://openrouter.ai/api/v1 or http://192.168.1.50:8000/v1. Only used when the provider is openai-compatible.
+    description: The endpoint's OpenAI-style base URL, for example https://openrouter.ai/api/v1 or http://my-server.local:8000/v1. Only used when the provider is openai-compatible.
   api_key:
     name: API key
     description: Your provider's key (OpenCode's for go and zen). Optional for a local openai-compatible server. Written to OpenCode's provider configuration at start; not logged and not placed in your /config.
   model:
     name: Model
-    description: Optional. A model as provider/model (for example opencode-go/deepseek-v4.1-flash). Leave empty for the provider's default (Go - opencode-go/deepseek-v4.1-flash; Zen - a free model). With openai-compatible this is required and is the bare model id the endpoint expects (for example deepseek/deepseek-chat).
+    description: With openai-compatible: required, the bare model id the endpoint expects (for example deepseek/deepseek-chat). With go or zen: optional, as provider/model (for example opencode-go/deepseek-v4.1-flash); empty means the provider default (Go - opencode-go/deepseek-v4.1-flash; Zen - a free model).
   review_notify:
     name: Phone to notify for the daily update review
     description: The notify service of the phone (for example notify.mobile_app_my_phone). Leave empty to get the persistent notification in Home Assistant only.
