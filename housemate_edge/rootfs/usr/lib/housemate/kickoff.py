@@ -56,6 +56,11 @@ CHAT_PATH = os.environ.get("HOUSEMATE_CHAT_PATH", "")
 # Core address, for the tests, which have no Supervisor; Home Assistant never sets it.
 ALLOWED = {os.environ.get("HOUSEMATE_KICKOFF_ALLOW", "172.30.32.1"), "127.0.0.1"}
 STATE_FILE = os.environ.get("HOUSEMATE_KICKOFF_STATE", "/data/kickoff/sessions.json")
+# The chat the panel reopens into: the id of the session a job last marked as
+# current, one line, written by mark_current (a voice job, the update review).
+# The launcher (housemate-agent) reads it; with none, or a session that no longer
+# exists, it opens the newest chat.
+CURRENT_FILE = os.environ.get("HOUSEMATE_CURRENT_SESSION", "/config/.housemate/current-session")
 MAX_TEXT = 2000
 MAX_TRACKED = 200
 
@@ -232,6 +237,18 @@ def wait_for_opencode(seconds=60):
             time.sleep(1)
 
 
+def mark_current(sid):
+    """Make `sid` the chat the panel opens into. Never fails the job it marks."""
+    try:
+        os.makedirs(os.path.dirname(CURRENT_FILE), exist_ok=True)
+        tmp = CURRENT_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(sid + "\n")
+        os.replace(tmp, CURRENT_FILE)
+    except OSError as e:
+        log(f"could not mark {sid} as the current session: {e}")
+
+
 def create_session(title):
     return call("POST", OPENCODE + "/session", {"title": title})["id"]
 
@@ -370,6 +387,9 @@ class Handler(BaseHTTPRequestHandler):
             sid = create_session(title)
             # Tracked before the request is sent: its first events must not be missed.
             track(sid, notify=target, title=title, waiting=not is_admin and not prepare, busy=False, done=False)
+            # A job an admin started (or a prepared review) is what the panel opens into next.
+            if is_admin or prepare:
+                mark_current(sid)
             if prepare:
                 call("POST", f"{OPENCODE}/session/{sid}/prompt_async",
                      {"noReply": True, "parts": [{"type": "text", "text": text}]})

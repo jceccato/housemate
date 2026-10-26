@@ -55,7 +55,9 @@ function activate(context) {
 
   function openAgent() {
     const existing = findOpenCode(vscode.window.terminals);
-    if (existing) { existing.show(); return; }
+    // A tab whose process has ended (the add-on restarted under it) is not an open OpenCode.
+    if (existing && existing.exitStatus === undefined) { existing.show(); return; }
+    if (existing) existing.dispose();
     open([]).show();
     closeBottomPanel();
   }
@@ -93,7 +95,8 @@ function activate(context) {
     context.subscriptions.push(item);
   }
 
-  // On start: wait for a revived tab, then open the agent only if none came back.
+  // On start of a window (a fresh open, a reload, a reconnect after the add-on
+  // restarted): wait for a revived tab, then open the agent only if none came back.
   setTimeout(() => { openAgent(); }, SETTLE_MS);
 }
 

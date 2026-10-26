@@ -14,7 +14,7 @@ import unittest
 from harness import AddOn, docker
 from test_mutants import INIT, build_mutant
 import harness
-from test_voice import VoiceAddOn
+from test_voice import ADMIN, MEMBER, PORT, VoiceAddOn
 
 EXT = "/usr/local/lib/code-server/lib/vscode/extensions/housemate.launcher"
 NODE = "/usr/local/lib/code-server/lib/node"
@@ -24,7 +24,7 @@ AGENT = "/usr/local/bin/housemate-agent"
 # the launcher ask for when a window starts?
 LAUNCH_SCRIPT = r"""
 const Module = require('module');
-const terminals = JSON.parse(process.argv[1]).map((name) => ({ name, show() { shown.push(name); } }));
+const terminals = JSON.parse(process.argv[1]).map((name) => ({ name: name.split('!')[0], exitStatus: name.includes('!') ? { code: 0 } : undefined, show() { shown.push(name); }, dispose() {} }));
 const created = [], shown = [], commands = [];
 const vscode = {
   window: {
@@ -81,6 +81,8 @@ def launcher_problems(addon):
     again = launcher(addon, ["OpenCode"])
     if again["created"]:
         found.append("a window with OpenCode already open started a second")
+    if len(launcher(addon, ["OpenCode!ended"])["created"]) != 1:
+        found.append("a tab left over from before an add-on restart kept the agent from reopening")
     for c in ("housemate.openAgent", "housemate.newChat", "housemate.sessions"):
         if c not in fresh["commands"]:
             found.append(f"command {c} is missing")
@@ -88,7 +90,7 @@ def launcher_problems(addon):
 
 
 def count_opencode(addon):
-    r = addon.exec("for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null; echo; done | grep -c '^opencode --continue '", check=False)
+    r = addon.exec("for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null; echo; done | grep -c '^opencode --session \\|^opencode --continue\\|^opencode $'", check=False)
     return int(r.stdout.strip() or 0)
 
 
@@ -103,6 +105,7 @@ def sessions(addon):
 
 def single_launcher_problems(addon):
     found = []
+    docker("exec", addon.name, "tmux", "-L", "housemate", "kill-server", check=False)
     for _ in range(3):
         open_panel(addon)
     # OpenCode starts a moment after its tmux session: let every start settle.
@@ -126,6 +129,23 @@ def permission_problems(addon):
     if extra:
         found.append(f"other permissions were set: {sorted(extra)}")
     return found
+
+
+POINTER = "/config/.housemate/current-session"
+
+
+def new_session(addon, title):
+    out = addon.exec(f"curl -s -XPOST localhost:4096/session -H 'content-type: application/json' -d '{{\"title\":\"{title}\"}}'").stdout
+    return json.loads(out)["id"]
+
+
+def the_chat_the_panel_opens(addon):
+    """The OpenCode command line housemate-agent would run, as the id it names (None: the newest by default)."""
+    docker("exec", addon.name, "tmux", "-L", "housemate", "kill-server", check=False)
+    open_panel(addon)
+    time.sleep(8)
+    r = addon.exec("for p in /proc/[0-9]*; do tr '\\0' ' ' < $p/cmdline 2>/dev/null; echo; done | grep -a '^opencode --session\\|^opencode $'")
+    return r.stdout.strip()
 
 
 class Panel(unittest.TestCase):
@@ -161,6 +181,57 @@ class Panel(unittest.TestCase):
         self.addon.restart()
         self.addon.restart()
         self.assertEqual(len(self.sidebar_calls()), 1)
+
+    def kickoff(self, body):
+        r = self.addon.as_core("curl", "-s", "-H", "Content-Type: application/json", "-d", json.dumps(body),
+                               f"http://{self.addon.name}:{PORT}/kickoff")
+        return json.loads(r.stdout)
+
+    def wait_endpoint(self):
+        for _ in range(60):
+            if self.addon.as_core("curl", "-sf", f"http://{self.addon.name}:{PORT}/healthz").returncode == 0:
+                return
+            time.sleep(1)
+        self.fail("the endpoint never answered")
+
+    def test_the_panel_reopens_on_the_chat_a_job_marked_and_falls_back_to_the_newest(self):
+        a = self.addon
+        self.wait_endpoint()
+        a.exec(f"rm -f {POINTER}")
+        older = new_session(a, "older chat")
+        time.sleep(1)
+        newest = new_session(a, "newest chat")
+        # No pointer: the newest chat.
+        self.assertIn(newest, the_chat_the_panel_opens(a))
+        # An admin's voice job marks its session; the panel opens into it, not the newest.
+        job = self.kickoff({"text": "build me a night light", "user_id": ADMIN, "notify": "notify.mobile_app_test_phone"})["session_id"]
+        self.assertEqual(a.exec(f"cat {POINTER}").stdout.strip(), job)
+        new_session(a, "a chat made by hand afterwards")
+        self.assertIn(job, the_chat_the_panel_opens(a))
+        # Across an add-on restart (the tmux server is gone with the container): the same chat.
+        a.restart()
+        self.assertTrue(a.data_exists(".housemate-sidebar-done"))
+        self.assertIn(job, the_chat_the_panel_opens(a))
+        # A prepared review marks its session too; a non-admin's job does not take the panel over.
+        review = self.kickoff({"text": "update review", "prepare": True})["session_id"]
+        self.assertEqual(a.exec(f"cat {POINTER}").stdout.strip(), review)
+        self.kickoff({"text": "turn everything off", "user_id": MEMBER})
+        self.assertEqual(a.exec(f"cat {POINTER}").stdout.strip(), review)
+        # A pointer to a chat that no longer exists: the newest.
+        a.exec(f"echo ses_gone > {POINTER}")
+        handmade = new_session(a, "the newest of all")
+        opened = the_chat_the_panel_opens(a)
+        self.assertNotIn("ses_gone", opened)
+        self.assertIn(handmade, opened)
+
+    def test_the_editor_page_carries_the_reconnect_helper(self):
+        a = self.addon
+        status, _, page = a.get("/?folder=/config")
+        self.assertIn("_housemate/reconnect.js", page)
+        status, headers, script = a.get("/_housemate/reconnect.js")
+        self.assertEqual(status, 200)
+        self.assertIn("location.reload()", script)
+        self.assertEqual(page.count("reconnect.js"), 1)
 
     def test_a_users_own_theme_survives_a_restart_and_an_old_file_gets_the_default_once(self):
         a = self.addon
@@ -216,7 +287,7 @@ class Mutants(unittest.TestCase):
         self.assertTrue(single_launcher_problems(a))
 
     def test_a_launcher_that_ignores_an_open_tab_is_noticed(self):
-        a = self.addon_with("tab", [f"RUN sed -i 's/if (existing) {{ existing.show(); return; }}//' {EXT}/extension.js"])
+        a = self.addon_with("tab", [f"RUN sed -i 's/if (existing \\&\\& existing.exitStatus === undefined) {{ existing.show(); return; }}//' {EXT}/extension.js"])
         self.assertTrue(launcher_problems(a))
 
     def test_a_widened_permission_is_noticed(self):
