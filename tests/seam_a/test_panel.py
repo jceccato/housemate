@@ -232,6 +232,10 @@ class Panel(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("location.reload()", script)
         self.assertEqual(page.count("reconnect.js"), 1)
+        # Behind Ingress the Supervisor names the panel's prefix, and the script is fetched from under it.
+        r = docker("exec", a.ingress_client, "curl", "-s", "-H", "X-Ingress-Path: /api/hassio_ingress/abc",
+                   f"http://{a.name}:1337/?folder=/config", check=False)
+        self.assertIn('src="/api/hassio_ingress/abc/_housemate/reconnect.js"', r.stdout)
 
     def test_a_users_own_theme_survives_a_restart_and_an_old_file_gets_the_default_once(self):
         a = self.addon

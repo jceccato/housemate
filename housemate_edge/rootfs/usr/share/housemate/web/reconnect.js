@@ -4,8 +4,10 @@
 // reopens on its own (the launcher extension does that on load).
 (function () {
   var failures = 0;
+  // Next to this script: the panel's own prefix, wherever Ingress put it.
+  var health = document.currentScript.src.replace("_housemate/reconnect.js", "healthz");
   function check() {
-    fetch("healthz", { cache: "no-store", credentials: "same-origin" })
+    fetch(health, { cache: "no-store", credentials: "same-origin" })
       .then(function (r) {
         if (!r.ok) throw new Error("not ready");
         if (failures >= 4) { location.reload(); return; }
