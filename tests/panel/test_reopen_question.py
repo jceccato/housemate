@@ -24,8 +24,10 @@ class Server(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    chats = [{"id": "ses_a", "title": "Sunset light"}, {"id": "ses_b", "title": "Bins"}, {"id": "ses_c", "title": "Quiet"}]
+
     def do_GET(self):
-        self.reply(Server.pending if self.path == "/question" else None)
+        self.reply({"/question": Server.pending, "/session": Server.chats}.get(self.path))
 
     def do_POST(self):
         n = int(self.headers.get("Content-Length") or 0)
@@ -55,6 +57,58 @@ class Reopen(unittest.TestCase):
 
     def test_a_server_that_is_not_there_is_not_an_error_for_the_panel(self):
         self.assertEqual(reopen_question.main(["x", "http://127.0.0.1:9", "ses_a"]), 1)
+
+
+class Watch(unittest.TestCase):
+    """The panel follows the chat on screen (its terminal title) and asks again once per unseen question."""
+
+    def setUp(self):
+        Reopen.setUp(self)
+
+    def run_watch(self, titles):
+        titles = list(titles)
+        state = {"i": 0}
+
+        def alive():
+            return state["i"] < len(titles)
+
+        def title():
+            t = titles[state["i"]]
+            state["i"] += 1
+            return t
+
+        reopen_question.watch(self.base, "s-x", title, alive, sleep=lambda s: None)
+
+    def asked_again(self):
+        return [p for p, _ in Server.calls if p.endswith("/prompt_async")]
+
+    def test_opening_on_a_chat_with_a_waiting_question_asks_again(self):
+        self.run_watch(["OpenCode", "OC | Sunset light", "OC | Sunset light"])
+        self.assertEqual(self.asked_again(), ["/session/ses_a/prompt_async"])
+
+    def test_switching_to_another_chat_with_a_waiting_question_asks_again_there(self):
+        self.run_watch(["OC | Quiet", "OC | Quiet", "OC | Bins", "OC | Bins"])
+        self.assertEqual(self.asked_again(), ["/session/ses_b/prompt_async"])
+
+    def test_a_question_asked_while_the_chat_was_on_screen_is_not_asked_again_on_return(self):
+        Server.pending = []
+        titles = iter(["OC | Sunset light", "OC | Sunset light", "OC | Quiet", "OC | Sunset light", "OC | Sunset light"])
+        seq = list(titles)
+        state = {"i": 0}
+
+        def title():
+            t = seq[state["i"]]
+            state["i"] += 1
+            if state["i"] == 2:  # the question arrives while the chat is on screen
+                Server.pending = [{"id": "que_live", "sessionID": "ses_a"}]
+            return t
+
+        reopen_question.watch(self.base, "s-x", title, lambda: state["i"] < len(seq), sleep=lambda s: None)
+        self.assertEqual(self.asked_again(), [])
+
+    def test_a_terminal_that_is_not_showing_a_chat_does_nothing(self):
+        self.run_watch(["bash", "OpenCode", ""])
+        self.assertEqual(Server.calls, [])
 
 
 if __name__ == "__main__":

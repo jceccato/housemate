@@ -28,4 +28,5 @@ The first kit, as it is first copied into `/config`:
   questions (onboarding, "grill it, or yolo?", the update approvals) through
   OpenCode's `question` tool: a few options with the recommended one first, and a
   box to type your own answer. Onboarding recommends restarting Home Assistant
-  right after you ask for voice; any other restart it proposes recommends "later".
+  right after you ask for voice, or for anything else that works only after it; a
+  restart it proposes for any other reason recommends "later".
