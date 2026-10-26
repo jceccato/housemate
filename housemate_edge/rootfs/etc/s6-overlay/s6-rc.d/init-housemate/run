@@ -13,6 +13,11 @@ readonly options="/data/options.json"
 readonly config_dir="${XDG_CONFIG_HOME}/opencode"
 readonly config_file="${config_dir}/opencode.json"
 
+# A new id at every start of the container: the panel's page reloads itself when
+# it sees it change (web/reconnect.js). Readable by nginx, which is not root.
+cat /proc/sys/kernel/random/uuid > /run/housemate-boot-id
+chmod 644 /run/housemate-boot-id
+
 umask 077
 mkdir -p \
     "${config_dir}" \

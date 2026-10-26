@@ -231,6 +231,12 @@ class Panel(unittest.TestCase):
         status, headers, script = a.get("/_housemate/reconnect.js")
         self.assertEqual(status, 200)
         self.assertIn("location.reload()", script)
+        # The boot id: stable while the container lives, new after a restart.
+        _, _, first = a.get("/_housemate/boot")
+        self.assertRegex(first.strip(), r"^[0-9a-f-]{36}$")
+        self.assertEqual(a.get("/_housemate/boot")[2], first)
+        a.restart()
+        self.assertNotEqual(a.get("/_housemate/boot")[2], first)
         self.assertEqual(page.count("reconnect.js"), 1)
         # Behind Ingress the Supervisor names the panel's prefix, and the script is fetched from under it.
         r = docker("exec", a.ingress_client, "curl", "-s", "-H", "X-Ingress-Path: /api/hassio_ingress/abc",
