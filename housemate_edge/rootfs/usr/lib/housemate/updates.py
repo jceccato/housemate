@@ -557,8 +557,9 @@ def wait_for_core(version=None, timeout=900):
     return {"up": False, "waited_s": int(time.time() - t0)}
 
 
-def progress_file(day=None):
-    return os.path.join(WORK_DIR, "progress-" + (day or datetime.now().strftime("%Y-%m-%d")) + ".json")
+def progress_file():
+    """One file for the review under way (it can span midnight); `finish` files it under its date."""
+    return os.path.join(WORK_DIR, "progress.json")
 
 
 def read_steps(path):
@@ -580,27 +581,36 @@ def record(step):
 
 
 def latest_steps():
-    """The steps of the newest progress file: a review can span midnight."""
-    files = sorted(glob.glob(os.path.join(WORK_DIR, "progress-*.json")))
-    return read_steps(files[-1]) if files else []
+    return read_steps(progress_file())
 
 
 MAX_RESUMES = 6
+STALE_HOURS = 36
+HALTS = ("not landed", "health failed")  # the review stopped to ask: its approvals do not carry over
 
 
-def flight(steps):
-    """Where a review stands, from its steps: approvals given, whether it ended, how often the
-    add-on has already carried on by itself (a review that keeps dying is left to the person)."""
-    out = {"install": False, "restart": False, "session": None, "finished": False, "resumes": 0}
+def flight(steps, now=None):
+    """Where a review stands, from its steps: approvals given, how often the add-on has already
+    carried on by itself. A step that stopped the review (an update that did not land, a failed
+    health check) or a review gone quiet for STALE_HOURS takes the approvals back: the person
+    sees what happened before anything else is installed."""
+    out = {"install": False, "restart": False, "session": None, "resumes": 0}
     for st in steps:
         kind = st.get("step")
         if kind == "approved":
             out[st["kind"]] = True
             out["session"] = st.get("session") or out["session"]
-        elif kind == "review finished":
-            out.update(install=False, restart=False, finished=True, resumes=0)
+        elif kind in HALTS or kind == "review finished":
+            out.update(install=False, restart=False, resumes=0)
         elif kind == "resumed":
             out["resumes"] += 1
+    if steps and now:
+        try:
+            last = datetime.fromisoformat(steps[-1]["at"])
+            if now - last > timedelta(hours=STALE_HOURS):
+                out.update(install=False, restart=False)
+        except (KeyError, ValueError):
+            pass
     return out
 
 
@@ -614,14 +624,15 @@ def approve(kind, session=None):
 
 def finish():
     record({"step": "review finished"})
+    os.replace(progress_file(), os.path.join(WORK_DIR, "review-" + datetime.now().strftime("%Y-%m-%dT%H%M%S") + ".json"))
     return {"ok": True}
 
 
-def resume_wanted(steps, waiting):
+def resume_wanted(steps, waiting, now=None):
     """The text to continue the review with, or None. Only with both approvals given, updates
     still waiting and fewer than MAX_RESUMES earlier tries: with the restart still unapproved the
     review waits for the person, as it does in the chat."""
-    f = flight(steps)
+    f = flight(steps, now)
     if not (f["install"] and f["restart"] and f["session"] and waiting and f["resumes"] < MAX_RESUMES):
         return None
     return (
@@ -634,8 +645,8 @@ def resume_wanted(steps, waiting):
 
 
 def status():
-    out = {"waiting": [u["entity_id"] for u in pending()], "progress": read_steps(progress_file())}
-    f = flight(latest_steps())
+    out = {"waiting": [u["entity_id"] for u in pending()], "progress": latest_steps()}
+    f = flight(latest_steps(), datetime.now())
     out["approvals"] = {"install": f["install"], "restart": f["restart"]}
     return out
 
@@ -716,6 +727,8 @@ def health(base_file, allow=()):
     now = {"repairs": repairs(), "error_signatures": error_signatures(), "addresses": addrs,
            "reachable": {a: answers_on(a) for a in addrs}, **counts()}
     problems = compare(base, now, running(), allow)
+    if problems:
+        record({"step": "health failed", "problems": problems[:5]})
     keys = ("unavailable", "automations_on", "repairs")
     return {"ok": not problems, "problems": problems, "now": {k: now[k] for k in keys}, "baseline": {k: base[k] for k in keys}}
 
@@ -795,10 +808,11 @@ def resume_review():
     chat through the kick-off endpoint. Returns what was done."""
     steps = latest_steps()
     todo = [u for u in pending() if u["kind"] != "other"]
-    text = resume_wanted(steps, bool(todo))
+    now = datetime.now()
+    text = resume_wanted(steps, bool(todo), now)
     if not text:
         return {"resumed": False}
-    f = flight(steps)
+    f = flight(steps, now)
     target = kickoff.normalise_target(options().get("review_notify"))
     reply = kickoff.call("POST", KICKOFF + "/kickoff", {
         "text": text, "resume_session": f["session"], "notify": target, "title": "Update review (carrying on)",
@@ -827,8 +841,14 @@ def local_now():
         return datetime.now(timezone.utc).astimezone()
 
 
+_attempt = {"thread": None}
+
+
 def attempt(seconds=300):
-    """One `daily`, given a deadline: a call that never returns must not stop tomorrow's."""
+    """One `daily`, given a deadline: a call that never returns must not stop tomorrow's, and a
+    second must not start while the first still runs (two summaries, two chats)."""
+    if _attempt["thread"] is not None and _attempt["thread"].is_alive():
+        raise TimeoutError("the previous daily attempt is still running")
     box = {}
 
     def work():
@@ -838,6 +858,7 @@ def attempt(seconds=300):
             box["error"] = e
 
     t = threading.Thread(target=work, daemon=True)
+    _attempt["thread"] = t
     t.start()
     t.join(seconds)
     if t.is_alive():
@@ -848,7 +869,6 @@ def attempt(seconds=300):
 
 
 def serve():
-    socket.setdefaulttimeout(60)
     kickoff.log("update review: waiting for the daily time")
     threading.Thread(target=resume_when_ready, daemon=True).start()
     while True:
