@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.33
+
+- Kit changelog: describe kit version 1 as shipped (#36)
+
 ## 0.1.32
 
 - Any OpenAI-compatible provider; Providers docs; upstream attribution (#34)
