@@ -24,7 +24,7 @@ version, your Home Assistant version and architecture, and what you expected.
 3. Update the docs and the glossary if you add or rename a concept.
 4. Run the tests locally if you can: [docs/testing.md](docs/testing.md) says
    how, and how the container tests clean up after themselves. Make sure CI
-   passes. Once CI exists it builds and smoke-tests both architectures.
+   passes. It builds and smoke-tests both architectures.
 5. Do not commit secrets, tokens or anything specific to your house.
 
 Commit messages are short imperative sentences ("Pin OpenCode 1.2.3"), with a
