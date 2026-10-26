@@ -230,6 +230,32 @@ def approved(kind, session="ses_1"):
     return {"step": "approved", "kind": kind, "session": session}
 
 
+class Record(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.old = updates.WORK_DIR
+        updates.WORK_DIR = self.tmp.name
+        self.addCleanup(setattr, updates, "WORK_DIR", self.old)
+
+    def test_steps_accumulate_and_no_temporary_file_is_left(self):
+        updates.record({"step": "a"})
+        updates.record({"step": "b"})
+        self.assertEqual([s["step"] for s in updates.latest_steps()], ["a", "b"])
+        import os
+        self.assertEqual(os.listdir(self.tmp.name), ["progress.json"])
+
+    def test_a_write_that_dies_midway_leaves_the_earlier_steps_whole(self):
+        updates.record({"step": "a"})
+        import json
+        from unittest import mock
+        with mock.patch.object(json, "dump", side_effect=OSError("disk full")):
+            with self.assertRaises(OSError):
+                updates.record({"step": "b"})
+        self.assertEqual([s["step"] for s in updates.latest_steps()], ["a"])
+
+
 class Resume(unittest.TestCase):
     def test_both_approvals_and_updates_left_means_carry_on(self):
         text = updates.resume_wanted([approved("install"), approved("restart")], True)

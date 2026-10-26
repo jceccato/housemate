@@ -222,7 +222,9 @@ class ZenWithoutKey(unittest.TestCase):
         config = json.loads(self.addon.read_data("opencode/config/opencode/opencode.json"))
         self.assertEqual(config["enabled_providers"], ["opencode"])
         self.assertNotIn("provider", config)
-        self.assertIn("no key", self.addon.logs())
+        logs = self.addon.logs()
+        self.assertIn("runs without a key", logs)
+        self.assertNotIn("has no key", logs)
 
 
 class UnknownProvider(unittest.TestCase):

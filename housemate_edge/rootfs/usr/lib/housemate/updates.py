@@ -575,8 +575,12 @@ def record(step):
     path = progress_file()
     steps = read_steps(path)
     steps.append(dict(step, at=datetime.now().isoformat(timespec="seconds")))
-    with open(path, "w") as f:
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(steps, f, indent=1)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
     return path
 
 
