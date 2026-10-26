@@ -267,9 +267,9 @@ Assistant has restarted); later (say that voice then waits).
   the closing summary.
 
 Never run `restart-core --yes`, or any other restart of Home Assistant, without
-a yes to Question B in this conversation. (Recommending "now" is for this step
-only, where they have just asked for voice. Anywhere else, a restart you propose
-recommends "later".)
+a yes to Question B in this conversation. (Recommending "now" is because they have
+just asked for something that works only after it. A restart you propose for
+any other reason recommends "later".)
 
 Once the voice kick-off is installed **and Home Assistant has been restarted**
 (if the restart is pending, skip this part and say it is waiting on the restart),

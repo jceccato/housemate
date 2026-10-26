@@ -27,7 +27,9 @@ directory. These rules ship with the add-on and update with it. The user's own
   a few suggested options with the recommended one first, and the tool's free-text
   answer for anything else. An approval is a clear yes/no. A restart of Home
   Assistant that you propose recommends "later" (a lived-in house is not
-  restarted by surprise); only onboarding's voice step recommends "now".
+  restarted by surprise), unless the person has just asked for something that
+  works only after it: then recommend "now" and say so (onboarding's voice step
+  is the usual case).
 
 ## Incoming kit changes
 
