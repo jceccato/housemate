@@ -212,25 +212,25 @@ class ReviewResume(Base, unittest.TestCase):
         texts = [p["text"] for m in self.opencode_messages(sid) for p in m["parts"] if p["type"] == "text"]
         self.assertTrue(any("do not ask" in t for t in texts), texts)
         self.assertTrue(any(m["info"]["role"] == "assistant" for m in self.opencode_messages(sid)), "the model was asked")
-        steps = json.loads(self.addon.exec("cat /config/.housemate/updates/progress-*.json").stdout)
+        steps = json.loads(self.addon.exec("cat /config/.housemate/updates/progress.json").stdout)
         self.assertEqual([x["step"] for x in steps].count("resumed"), 1)
         self.assertEqual(self.addon.exec("cat /config/.housemate/current-session").stdout.strip(), sid)
         titles = [c["data"]["title"] for c in self.calls("persistent_notification/create")]
         self.assertIn("Housemate is carrying on", titles)
 
     def test_the_restart_approval_still_outstanding_waits(self):
-        self.addon.exec("rm -f /config/.housemate/updates/progress-*.json")
+        self.addon.exec("rm -f /config/.housemate/updates/progress.json")
         sid = self.run_daily()["session_id"]
         self.helper("approved", "install")
         before = len(self.opencode_messages(sid))
         self.restart()
         time.sleep(15)
         self.assertEqual(len(self.opencode_messages(sid)), before, "nothing was sent to the chat")
-        steps = self.addon.exec("cat /config/.housemate/updates/progress-*.json").stdout
+        steps = self.addon.exec("cat /config/.housemate/updates/progress.json").stdout
         self.assertNotIn("resumed", steps)
 
     def test_a_finished_review_is_not_continued(self):
-        self.addon.exec("rm -f /config/.housemate/updates/progress-*.json")
+        self.addon.exec("rm -f /config/.housemate/updates/progress.json")
         sid = self.run_daily()["session_id"]
         for step in ("install", "restart"):
             self.helper("approved", step)

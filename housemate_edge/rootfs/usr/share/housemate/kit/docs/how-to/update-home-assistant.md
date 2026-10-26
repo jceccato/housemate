@@ -64,7 +64,7 @@ Ask with the `question` tool, so a notification reaches the user's phone.
 The user may give both at the start ("do it all"), or leave the restart to be
 asked at the moment it comes. Never install before the first, never restart
 before the second. Record each with `housemate-updates approved install` and
-`approved restart`: with both on record, Housemate carries the review on by itself
+`approved restart` (add `--session <id>` when you know this chat's id; it defaults to the review's own chat): with both on record, Housemate carries the review on by itself
 after a reboot or its own update, in the same chat.
 
 ## 3. Back up, once
@@ -98,7 +98,7 @@ or a Supervisor not on the stable channel, is left alone and reported.
 
 Housemate's own update goes last and ends this chat. Before it, write down for
 the user where things stand (what landed, what is left, where the backup is);
-after it the add-on starts again and the user can open a fresh chat. `status`
+after it the add-on starts again and carries on in this same chat. `status`
 shows what was done and which approvals were given, if the review was cut short by
 a reboot, a Housemate update or the model running out of allowance: carry on from
 there, never repeating an update that landed. With both approvals on record the

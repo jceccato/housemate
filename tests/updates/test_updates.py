@@ -255,6 +255,20 @@ class Resume(unittest.TestCase):
         self.assertIsNone(updates.resume_wanted(steps, True))
         self.assertIsNotNone(updates.resume_wanted(steps[:-1], True))
 
+    def test_a_stop_takes_the_approvals_back(self):
+        both = [approved("install"), approved("restart")]
+        for stop in ("not landed", "health failed"):
+            self.assertIsNone(updates.resume_wanted(both + [{"step": stop}], True), stop)
+        self.assertIsNotNone(updates.resume_wanted(both + [{"step": "landed"}], True))
+
+    def test_a_review_gone_quiet_is_not_resumed_days_later(self):
+        from datetime import datetime, timedelta
+        now = datetime(2026, 10, 30, 9, 0)
+        old = [dict(approved("install"), at="2026-10-26T10:00:00"), dict(approved("restart"), at="2026-10-26T10:00:00")]
+        self.assertIsNone(updates.resume_wanted(old, True, now))
+        fresh = [dict(s, at=(now - timedelta(hours=2)).isoformat()) for s in old]
+        self.assertIsNotNone(updates.resume_wanted(fresh, True, now))
+
     def test_the_session_is_the_one_the_approvals_named(self):
         steps = [approved("install", "ses_a"), approved("restart", "ses_b")]
         self.assertEqual(updates.flight(steps)["session"], "ses_b")
