@@ -80,8 +80,8 @@ its copyright notice:
 These are downloaded at build time from their releases, pinned by version and
 checksum, and keep their own licences.
 
-- [OpenCode](https://github.com/anomalyco/opencode), MIT, copyright the
-  OpenCode authors.
+- [OpenCode](https://github.com/anomalyco/opencode), MIT, Copyright (c) 2025 opencode
+  (checked against its LICENSE at v1.19.4).
 - [code-server](https://github.com/coder/code-server), MIT, copyright Coder
   Technologies Inc.
 - [OpenCode's editor extension](https://open-vsx.org/extension/sst-dev/opencode)

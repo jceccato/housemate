@@ -282,7 +282,8 @@ class Manifest(unittest.TestCase):
 
     def test_options_cover_the_provider_and_the_key(self):
         c = self.config
-        self.assertEqual(c["schema"]["provider"], "list(go|zen)")
+        self.assertEqual(c["schema"]["provider"], "list(go|zen|openai-compatible)")
+        self.assertEqual(c["schema"]["base_url"], "str?")
         self.assertEqual(c["schema"]["api_key"], "password?")
 
     def test_the_repository_lists_the_add_on(self):

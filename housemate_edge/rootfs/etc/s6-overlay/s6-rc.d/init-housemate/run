@@ -87,7 +87,24 @@ provider=$(jq -r '.provider // "go"' "${options}")
 case "${provider}" in
     go) provider_id="opencode-go"; default_model="opencode-go/deepseek-v4.1-flash" ;;
     zen) provider_id="opencode"; default_model="opencode/deepseek-v4.1-flash-free" ;;
-    *) bashio::exit.nok "Unknown provider '${provider}': choose go or zen." ;;
+    openai-compatible)
+        provider_id="openai-compatible"
+        default_model=""
+        # No default here: the add-on cannot know what the endpoint serves. Say
+        # what is missing, never the key.
+        base_url=$(jq -r '(.base_url // "") | gsub("^\\s+|\\s+$"; "")' "${options}")
+        model_id=$(jq -r '(.model // "") | gsub("^\\s+|\\s+$"; "")' "${options}")
+        if [[ -z "${base_url}" ]]; then
+            bashio::exit.nok "Provider openai-compatible needs a base_url (for example https://openrouter.ai/api/v1): set it in the Configuration tab."
+        fi
+        if [[ "${base_url}" != http://* && "${base_url}" != https://* ]]; then
+            bashio::exit.nok "base_url must start with http:// or https://."
+        fi
+        if [[ -z "${model_id}" ]]; then
+            bashio::exit.nok "Provider openai-compatible needs a model (the model id the endpoint expects): set it in the Configuration tab."
+        fi
+        ;;
+    *) bashio::exit.nok "Unknown provider '${provider}': choose go, zen or openai-compatible." ;;
 esac
 
 # OpenCode's provider config. With no key, only the provider is selected.
@@ -95,19 +112,33 @@ esac
 # skills and the kit's how-tos under /usr/share/housemate) without asking, because
 # they lie outside the /config workspace. Nothing else is widened: writes keep
 # their defaults.
-jq --arg id "${provider_id}" --arg default_model "${default_model}" '
+jq --arg id "${provider_id}" --arg default_model "${default_model}" --arg provider "${provider}" '
     {
         "$schema": "https://opencode.ai/config.json",
         autoupdate: false,
         enabled_providers: [$id],
-        model: (if ((.model // "") | length) > 0 then .model else $default_model end),
+        model: (if $provider == "openai-compatible"
+                then $id + "/" + (.model | gsub("^\\s+|\\s+$"; ""))
+                elif ((.model // "") | length) > 0 then .model
+                else $default_model end),
         permission: {
             external_directory: {
                 "/usr/share/housemate/**": "allow"
             }
         }
     }
-    + (if ((.api_key // "") | length) > 0
+    + (if $provider == "openai-compatible"
+        # A custom provider: OpenCode ships @ai-sdk/openai-compatible inside its
+        # binary, so nothing is fetched at run time. The model id may contain
+        # slashes (OpenRouter), so it is the key as it stands.
+        then {provider: {($id): {
+            npm: "@ai-sdk/openai-compatible",
+            name: "OpenAI-compatible endpoint",
+            options: ({baseURL: (.base_url | gsub("^\\s+|\\s+$"; ""))}
+                      + (if ((.api_key // "") | length) > 0 then {apiKey: .api_key} else {} end)),
+            models: {((.model | gsub("^\\s+|\\s+$"; ""))): {name: (.model | gsub("^\\s+|\\s+$"; ""))}}
+        }}}
+        elif ((.api_key // "") | length) > 0
         then {provider: {($id): {options: {apiKey: .api_key}}}}
         else {} end)
 ' "${options}" > "${config_file}.tmp"
@@ -120,6 +151,8 @@ rm -rf /tmp/.bashio
 
 if jq -e '(.api_key // "") | length > 0' "${options}" > /dev/null; then
     bashio::log.info "OpenCode provider '${provider_id}' configured with a key."
+elif [[ "${provider}" == "openai-compatible" ]]; then
+    bashio::log.info "OpenCode provider '${provider_id}' configured without a key (fine for a local server)."
 else
     bashio::log.warning "OpenCode provider '${provider_id}' has no key; set one in the Configuration tab."
 fi
