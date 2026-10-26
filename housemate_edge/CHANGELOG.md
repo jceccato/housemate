@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.26
+
+- Update review: carry on by itself after a restart; current-session pointer (#26)
+
 ## 0.1.25
 
 - Reopen OpenCode after an add-on restart, on the chat a job marked (#25)
