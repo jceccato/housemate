@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.35
+
+- Onboarding: five minutes, questions through the question tool, restart recommends now (#37)
+
 ## 0.1.34
 
 - Small fixes: trim api_key and base_url, Zen needs no key, atomic progress write (#35)
