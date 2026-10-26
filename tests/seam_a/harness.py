@@ -88,7 +88,8 @@ def build_image(name, dockerfile_lines):
 
 
 def _exit_sweep():
-    signal.signal(signal.SIGINT, signal.SIG_IGN)  # a second Ctrl-C must not abort the cleanup
+    for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+        signal.signal(sig, signal.SIG_IGN)  # a second signal must not abort the cleanup
     cleanup.sweep(run=RUN_ID)
 
 
@@ -99,6 +100,7 @@ def _on_sigterm(signum, frame):
 atexit.register(_exit_sweep)
 try:
     signal.signal(signal.SIGTERM, _on_sigterm)
+    signal.signal(signal.SIGHUP, _on_sigterm)
 except ValueError:  # not the main thread
     pass
 cleanup.sweep(cleanup.STALE_AFTER)  # leftovers of runs that were killed outright
@@ -110,7 +112,7 @@ class AddOn:
     def __init__(self, options, config_files=None):
         self.id = f"{RUN_ID}-{uuid.uuid4().hex[:4]}"
         self.options = options
-        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix=f"{cleanup.TMP_PREFIX}{RUN_ID}-"))
+        self.tmp = pathlib.Path(tempfile.mkdtemp(prefix=f"{cleanup.TMP_PREFIX}{RUN_ID}-{RUN_STARTED}-"))
         self.config = self.tmp / "config"
         self.data = self.tmp / "data"
         self.www = self.tmp / "www"

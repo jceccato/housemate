@@ -1,9 +1,6 @@
 """The voice tests must be able to fail: break the image two ways and check they notice."""
 
-import os
-import tempfile
 import unittest
-from pathlib import Path
 
 import harness
 import test_voice

@@ -11,7 +11,7 @@ import unittest
 import uuid
 
 import cleanup
-from harness import RUN_ID, STUB_IMAGE, docker
+from harness import STUB_IMAGE
 
 
 def plain(*args):
@@ -71,7 +71,7 @@ class Sweep(unittest.TestCase):
 
     def test_dry_run_removes_nothing(self):
         stale = self.stage("dry" + uuid.uuid4().hex[:6], int(time.time()) - 7200)
-        self.assertTrue(cleanup.sweep(dry_run=True))
+        self.assertTrue(any(r.startswith("container ") for r in cleanup.sweep(dry_run=True)))
         self.assertTrue(exists("container", stale["c"]))
 
 

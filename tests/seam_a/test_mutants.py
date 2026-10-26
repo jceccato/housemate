@@ -5,11 +5,8 @@ under test, and checks that the harness notices. A test suite that cannot be
 made to fail is a green light with no wiring behind it.
 """
 
-import os
-import tempfile
 import time
 import unittest
-from pathlib import Path
 
 import harness
 from harness import AddOn, docker, find_secret_everywhere

@@ -46,7 +46,7 @@ def _wanted(started, run, cutoff, only_run):
     try:
         return int(started) <= cutoff
     except ValueError:
-        return True  # labelled by us but unreadable: treat as stale
+        return False  # no readable start time: not provably ours, leave it
 
 
 def sweep(older_than=STALE_AFTER, run=None, dry_run=False, now=None):
@@ -89,14 +89,10 @@ def sweep(older_than=STALE_AFTER, run=None, dry_run=False, now=None):
     # Scratch directories: root-owned files inside, so remove from a container.
     for path in glob.glob(os.path.join(tempfile.gettempdir(), TMP_PREFIX + "*")):
         name = os.path.basename(path)
-        rid = name[len(TMP_PREFIX):].split("-", 1)[0]
-        try:
-            mtime = os.path.getmtime(path)
-        except OSError:
-            continue
-        if run is not None and rid != run:
-            continue
-        if run is None and mtime > cutoff:
+        parts = name[len(TMP_PREFIX):].split("-")  # <run id>-<start epoch>-<random>
+        if len(parts) < 3 or not parts[1].isdigit():
+            continue  # not made by this harness version
+        if not _wanted(parts[1], parts[0], cutoff, run):
             continue
         act("directory", path)
         if not dry_run:
