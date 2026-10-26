@@ -6,5 +6,21 @@ section per version, newest first, each written for the user.
 
 ## Kit version 1
 
-The first kit: agent rules, a cheat sheet, memory, how-tos, scripts and the
-local-markdown tracker.
+The first kit, as it is first copied into `/config`:
+
+- **Agent rules** (`AGENTS.md`): where things are, how the agent works (find
+  entities through the API, prefer packages, check the configuration before a
+  restart, reload rather than restart, back up before big changes, commit every
+  change with a reason, secrets by name only, review its own work, script what
+  it repeats) and that commands are yours to start.
+- **A cheat sheet** (`docs/cheat-sheet.md`) of your entities, areas and quirks,
+  which the agent grows, and **memory** (`memory/`), one fact per file.
+- **How-tos** (`docs/how-to/`): write and reload an automation, test a
+  template, read history, roll back with git, and update Home Assistant.
+- **Scripts** (`scripts/`): `check-config.sh` and `git-init.sh`.
+- **A tracker** (`tracker/`): bigger jobs as markdown files.
+- **Skills** (`.opencode/skills/`): `home-assistant` (the API), `orchestrator`,
+  `code-review`, `writing-for-agents`, and Matt Pocock's `tdd`,
+  `diagnosing-bugs`, `codebase-design`, `domain-modeling` and `grilling`; and
+  **commands** only you can start (`.opencode/commands/`: `/grill`, `/to-spec`,
+  `/to-tickets`, `/triage`, `/setup-matt-pocock-skills`).
