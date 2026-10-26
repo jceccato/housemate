@@ -105,6 +105,31 @@ class WithoutKey(unittest.TestCase):
         self.assertIn("Done.", self.addon.ask().stdout)
 
 
+class Tidied(unittest.TestCase):
+    """A pasted key with a stray space and a base_url with a trailing slash still work."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.addon = EndpointAddOn(options(api_key=f" {KEY}\n", base_url=f"  {BASE_URL}/  "),
+                                  {"configuration.yaml": "homeassistant:\n"})
+        cls.addon.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.addon.stop()
+
+    def test_the_key_and_the_url_are_written_trimmed(self):
+        config = json.loads(self.addon.read_data(CONFIG))
+        self.assertEqual(config["provider"]["openai-compatible"]["options"], {"baseURL": BASE_URL, "apiKey": KEY})
+
+    def test_the_endpoint_sees_the_clean_key_and_path(self):
+        r = self.addon.ask()
+        self.assertIn("Done.", r.stdout, r.stdout + r.stderr)
+        seen = self.addon.model_requests()
+        self.assertTrue(seen)
+        self.assertTrue(all(q["authorization"] == f"Bearer {KEY}" and q["path"] == "/v1/chat/completions" for q in seen), seen)
+
+
 class MissingField(unittest.TestCase):
     def stops_saying(self, opts, expected):
         addon = EndpointAddOn(opts, {"configuration.yaml": "homeassistant:\n"})

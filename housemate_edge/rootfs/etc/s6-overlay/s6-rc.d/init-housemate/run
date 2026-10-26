@@ -92,7 +92,7 @@ case "${provider}" in
         default_model=""
         # No default here: the add-on cannot know what the endpoint serves. Say
         # what is missing, never the key.
-        base_url=$(jq -r '(.base_url // "") | gsub("^\\s+|\\s+$"; "")' "${options}")
+        base_url=$(jq -r '(.base_url // "") | gsub("^\\s+|\\s+$"; "") | sub("/+$"; "")' "${options}")
         model_id=$(jq -r '(.model // "") | gsub("^\\s+|\\s+$"; "")' "${options}")
         if [[ -z "${base_url}" ]]; then
             bashio::exit.nok "Provider openai-compatible needs a base_url (for example https://openrouter.ai/api/v1): set it in the Configuration tab."
@@ -134,12 +134,12 @@ jq --arg id "${provider_id}" --arg default_model "${default_model}" --arg provid
         then {provider: {($id): {
             npm: "@ai-sdk/openai-compatible",
             name: "OpenAI-compatible endpoint",
-            options: ({baseURL: (.base_url | gsub("^\\s+|\\s+$"; ""))}
-                      + (if ((.api_key // "") | length) > 0 then {apiKey: .api_key} else {} end)),
+            options: ({baseURL: (.base_url | gsub("^\\s+|\\s+$"; "") | sub("/+$"; ""))}
+                      + (if ((.api_key // "") | gsub("^\\s+|\\s+$"; "") | length) > 0 then {apiKey: (.api_key | gsub("^\\s+|\\s+$"; ""))} else {} end)),
             models: {((.model | gsub("^\\s+|\\s+$"; ""))): {name: (.model | gsub("^\\s+|\\s+$"; ""))}}
         }}}
-        elif ((.api_key // "") | length) > 0
-        then {provider: {($id): {options: {apiKey: .api_key}}}}
+        elif ((.api_key // "") | gsub("^\\s+|\\s+$"; "") | length) > 0
+        then {provider: {($id): {options: {apiKey: (.api_key | gsub("^\\s+|\\s+$"; ""))}}}}
         else {} end)
 ' "${options}" > "${config_file}.tmp"
 chmod 600 "${config_file}.tmp"
@@ -149,10 +149,12 @@ mv "${config_file}.tmp" "${config_file}"
 # base image's own steps read them. Nothing needs it after that: remove it.
 rm -rf /tmp/.bashio
 
-if jq -e '(.api_key // "") | length > 0' "${options}" > /dev/null; then
+if jq -e '(.api_key // "") | gsub("^\\s+|\\s+$"; "") | length > 0' "${options}" > /dev/null; then
     bashio::log.info "OpenCode provider '${provider_id}' configured with a key."
 elif [[ "${provider}" == "openai-compatible" ]]; then
     bashio::log.info "OpenCode provider '${provider_id}' configured without a key (fine for a local server)."
+elif [[ "${provider}" == "zen" ]]; then
+    bashio::log.info "OpenCode provider '${provider_id}' runs without a key (Zen's free models need none; a paid model needs one in the Configuration tab)."
 else
     bashio::log.warning "OpenCode provider '${provider_id}' has no key; set one in the Configuration tab."
 fi
