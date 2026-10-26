@@ -154,7 +154,7 @@ class AsksThroughTheQuestionTool(unittest.TestCase):
     def test_the_tool_is_enabled_in_a_shell_and_in_the_running_server(self):
         self.assertEqual(self.addon.exec("printenv OPENCODE_ENABLE_QUESTION_TOOL").stdout.strip(), "true")
         server = self.addon.exec(
-            "for d in /proc/[0-9]*; do if tr '\\0' ' ' < $d/cmdline 2>/dev/null | grep -q 'opencode serve'; then "
+            "for d in /proc/[0-9]*; do if tr '\\0' ' ' < $d/cmdline 2>/dev/null | grep -Eq '^(/usr/local/bin/)?opencode serve'; then "
             "tr '\\0' '\\n' < $d/environ; fi; done").stdout
         self.assertIn("OPENCODE_ENABLE_QUESTION_TOOL=true", server)
 
