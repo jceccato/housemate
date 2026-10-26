@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.27
+
+- Update review: approvals do not outlive a stop or a quiet day; one progress file per review (#27)
+
 ## 0.1.26
 
 - Update review: carry on by itself after a restart; current-session pointer (#26)
