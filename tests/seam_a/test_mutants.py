@@ -5,11 +5,8 @@ under test, and checks that the harness notices. A test suite that cannot be
 made to fail is a green light with no wiring behind it.
 """
 
-import os
-import tempfile
 import time
 import unittest
-from pathlib import Path
 
 import harness
 from harness import AddOn, docker, find_secret_everywhere
@@ -19,12 +16,7 @@ RUN = "/etc/s6-overlay/s6-rc.d/code-server/run"
 INIT = "/etc/s6-overlay/s6-rc.d/init-housemate/run"
 
 
-def build_mutant(name, dockerfile_lines):
-    with tempfile.TemporaryDirectory() as d:
-        Path(d, "Dockerfile").write_text(f"FROM {harness.IMAGE}\n" + "\n".join(dockerfile_lines) + "\n")
-        tag = f"housemate-mutant-{name}:{os.getpid()}"
-        docker("build", "-q", "-t", tag, d)
-    return tag
+build_mutant = harness.build_image
 
 
 class Mutants(unittest.TestCase):
