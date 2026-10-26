@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.25
+
+- Reopen OpenCode after an add-on restart, on the chat a job marked (#25)
+
 ## 0.1.24
 
 - git-init: on a repository with history, commit only the ignore policy
