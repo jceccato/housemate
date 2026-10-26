@@ -24,3 +24,8 @@ The first kit, as it is first copied into `/config`:
   `diagnosing-bugs`, `codebase-design`, `domain-modeling` and `grilling`; and
   **commands** only you can start (`.opencode/commands/`: `/grill`, `/to-spec`,
   `/to-tickets`, `/triage`, `/setup-matt-pocock-skills`).
+- **Questions through the question tool.** The agent asks its setup and decision
+  questions (onboarding, "grill it, or yolo?", the update approvals) through
+  OpenCode's `question` tool: a few options with the recommended one first, and a
+  box to type your own answer. Onboarding recommends restarting Home Assistant
+  right after you ask for voice; any other restart it proposes recommends "later".

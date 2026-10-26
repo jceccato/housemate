@@ -27,20 +27,18 @@ what you chose, and carry on.
 
 ## 2. Ask: grill it, or yolo?
 
-For anything that is not plainly a one-off, ask once, in this shape, short enough
-to read on a phone:
+For anything that is not plainly a one-off, ask once, with the `question` tool
+(never as a question in plain chat), short enough to read on a phone:
 
-```
-❓ **Q1** - **Grill it, or yolo?**: <the request in your words, and why it looks bigger than a quick job>
-(1) Yolo - I just do it and tell you what I did
-(2) 🥇 Grill it - I ask you the hard questions first, then we write it up and I work it in steps
+- **Question**: "Grill it, or yolo?" with the request in your words and why it
+  looks bigger than a quick job.
+- **Options**: "Yolo - I just do it and tell you what I did" and "Grill it - I ask
+  you the hard questions first, then we write it up and I work it in steps". Put
+  the one you recommend first, labelled "(recommended)", and say why in its
+  description. The tool's free-text answer covers anything else.
 
-➡️ (2) - <one line: why this one>
-```
-
-Put 🥇 on the option you recommend. Number questions `Q1`, `Q2`... through the
-chat and put `---` between several. Ask only what you cannot find out yourself:
-look in the cheat sheet, the API and the files first. Wait for the answer.
+One question at a time. Ask only what you cannot find out yourself: look in the
+cheat sheet, the API and the files first. Wait for the answer.
 
 ## 3a. Yolo
 
@@ -100,8 +98,8 @@ A **gate** is a step only the user can take: signing in to a service, a secret
 only they hold, pressing a physical button, a device only they can reach, a
 choice that is theirs to make. A ticket with a gate runs up to the gate, then
 stops. Prepare the exact value, command or screen so the gate is a paste and a
-confirmation, then ask the user in the question shape of section 2: what you
-will do, what they will notice, what to reply. Wait. Never guess past a gate
+confirmation, then ask the user with the `question` tool, as in section 2: what you
+will do, what they will notice, and a clear yes/no (or the choices) to reply with. Wait. Never guess past a gate
 and never do the user's part for them. A ticket whose gate is clear from the start is `ready-for-human`: still worked
 up to its gate, with the user beside you.
 

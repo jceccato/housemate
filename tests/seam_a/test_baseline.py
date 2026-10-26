@@ -139,6 +139,34 @@ class Repository(unittest.TestCase):
         self.assertEqual([w for w in lab if w in text.lower()], [])
 
 
+class AsksThroughTheQuestionTool(unittest.TestCase):
+    """Setup and decision questions go through OpenCode's `question` tool, so it must be on."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.addon = AddOn(OPTIONS)
+        cls.addon.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.addon.stop()
+
+    def test_the_tool_is_enabled_in_a_shell_and_in_the_running_server(self):
+        self.assertEqual(self.addon.exec("printenv OPENCODE_ENABLE_QUESTION_TOOL").stdout.strip(), "true")
+        server = self.addon.exec("tr '\\0' '\\n' < /proc/$(pgrep -f 'opencode serve' | head -1)/environ").stdout
+        self.assertIn("OPENCODE_ENABLE_QUESTION_TOOL=true", server)
+
+    def test_the_skills_say_to_use_it(self):
+        base = ADDON_DIR / "rootfs/usr/share/housemate"
+        onboarding = (base / "skills/onboarding/SKILL.md").read_text()
+        self.assertIn("Every question goes through the `question` tool", onboarding)
+        self.assertIn("restart now\n(**recommended**", onboarding)
+        self.assertIn("recommends \"later\"", onboarding)
+        self.assertIn("`question` tool", (base / "AGENTS.md").read_text())
+        self.assertIn("`question` tool", (base / "kit/.opencode/skills/orchestrator/SKILL.md").read_text())
+        self.assertIn("`question` tool", (base / "skills/update-review/SKILL.md").read_text())
+
+
 class BaselineMutants(unittest.TestCase):
     """The listing check must be able to fail."""
 

@@ -101,7 +101,8 @@ ENV \
     XDG_DATA_HOME=/data/opencode/data \
     XDG_STATE_HOME=/data/opencode/state \
     XDG_CACHE_HOME=/data/opencode/cache \
-    OPENCODE_DISABLE_AUTOUPDATE=true
+    OPENCODE_DISABLE_AUTOUPDATE=true \
+    OPENCODE_ENABLE_QUESTION_TOOL=true
 
 COPY rootfs /
 
