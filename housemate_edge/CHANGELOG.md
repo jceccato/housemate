@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.31
+
+- Docs: onboarding's two voice questions, the real trial and the chats
+- Onboarding: a real voice trial, where the chats are, and one status line per step
+- Onboarding: ask to install voice and to restart as two questions
+
 ## 0.1.30
 
 - Write the README and Docs tab for strangers; make the resume test deterministic (#32)
