@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.37
+
+- The panel re-asks a waiting question when chats are switched; restart recommendation (#39)
+
 ## 0.1.36
 
 - The panel attaches to the add-on's OpenCode server and has a waiting question asked again (#38)
