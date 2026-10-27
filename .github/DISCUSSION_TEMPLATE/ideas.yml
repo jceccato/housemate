@@ -1,0 +1,30 @@
+# The form behind "Suggestion from Housemate". The agent's pre-filled link
+# (housemate-suggest link) fills `title`, `body` and `kind`; Submit is
+# always the person's own click.
+title: "Suggestion from Housemate"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. This was prepared by the Housemate agent in your Home Assistant, with
+        personal details replaced by placeholders, and you reviewed it before opening this page.
+        Read it once more: **you** are posting it, publicly, under your GitHub name.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What is it?
+      options:
+        - Skill
+        - Runbook or how-to
+        - Workflow or automation pattern
+        - Rule
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: body
+    attributes:
+      label: The suggestion
+      description: What it does, why it helps, and the text itself. Nothing about your house.
+    validations:
+      required: true

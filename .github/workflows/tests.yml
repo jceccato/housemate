@@ -40,6 +40,10 @@ jobs:
         # Staging and applying kit changes (bash and jq, no container).
         run: python3 -I -m unittest discover -s tests/kit -v
 
+      - name: Run the suggestion tests
+        # Scrubbing seeded personal details, the pre-filled link, the memory of a no.
+        run: python3 -I -m unittest discover -s tests/suggest -v
+
       - name: Run the panel tests
         # Putting a waiting question to a panel that opened late (no container).
         run: python3 -I -m unittest discover -s tests/panel -v
