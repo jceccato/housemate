@@ -48,15 +48,26 @@ DOMAINS = (
     "siren sensor sun switch text timer todo update vacuum valve water_heater weather zone"
 ).split()
 FILE_EXT = {"yaml", "yml", "json", "py", "md", "txt", "sh", "js", "conf", "log", "db", "jpg", "png", "html", "css", "toml", "ini"}
-SERVICE_PREFIX = ("turn_", "set_", "reload", "select_", "send_", "play_", "media_", "open_", "close_", "volume_",
-                  "increment", "decrement", "toggle", "lock", "unlock", "trigger", "create", "remove", "restart",
-                  "stop", "start", "check_config", "update_entity", "dismiss", "press", "pause", "resume", "write_log",
-                  "snapshot", "clear_", "return_", "return", "get_", "cancel", "finish", "change", "mark_", "dismiss_",
-                  "enable", "disable", "stop_", "start_", "delete", "add_", "update", "save", "reset", "run", "call")
-PRIVATE_SUFFIXES = (".local", ".lan", ".home", ".internal", ".localdomain", ".home.arpa", ".duckdns.org",
-                    ".nabu.casa", ".dyndns.org", ".ddns.net", ".myfritz.net", ".corp", ".intranet")
-HOST_RE = (r"\b(?:[a-z0-9-]+\.)+(?:local|lan|home|internal|localdomain|home\.arpa|duckdns\.org|nabu\.casa|"
-           r"dyndns\.org|ddns\.net|myfritz\.net|intranet)(?![\w-])")
+# Domains whose dotted names can be services. A name in any other domain (sensor., person., ...)
+# is always an entity. In these, only a whole, well-known service name is kept.
+SERVICE_DOMAINS = {"alarm_control_panel", "automation", "button", "climate", "counter", "cover", "fan", "group",
+                   "humidifier", "input_boolean", "input_button", "input_datetime", "input_number", "input_select",
+                   "input_text", "light", "lock", "media_player", "notify", "number", "remote", "scene", "script",
+                   "select", "siren", "switch", "text", "timer", "update", "vacuum", "valve", "water_heater"}
+SERVICES = {"turn_on", "turn_off", "toggle", "reload", "reload_all", "restart", "stop", "start", "pause", "resume",
+            "check_config", "update_entity", "create", "dismiss", "press", "trigger", "cancel", "finish", "change",
+            "lock", "unlock", "open", "close", "open_cover", "close_cover", "stop_cover", "increment", "decrement",
+            "reset", "install", "skip", "send_message", "persistent_notification", "set_value", "set_temperature",
+            "set_hvac_mode", "set_datetime", "set_options", "set_cover_position", "set_humidity", "set_fan_mode",
+            "set_preset_mode", "set_percentage", "select_option", "select_next", "select_previous", "select_first",
+            "select_last", "volume_set", "volume_up", "volume_down", "volume_mute", "media_play", "media_pause",
+            "media_stop", "media_play_pause", "media_next_track", "media_previous_track", "play_media", "select_source",
+            "return_to_base", "start_pause", "clean_spot", "locate", "alarm_arm_home", "alarm_arm_away", "alarm_disarm",
+            "write_log"}
+PRIVATE_DOMAINS = ("local", "lan", "home", "internal", "localdomain", "home.arpa", "corp", "intranet", "duckdns.org",
+                   "nabu.casa", "dyndns.org", "ddns.net", "myfritz.net")
+PRIVATE_SUFFIXES = tuple("." + d for d in PRIVATE_DOMAINS)
+HOST_RE = r"\b(?:[a-z0-9-]+\.)+(?:" + "|".join(re.escape(d) for d in PRIVATE_DOMAINS) + r")(?![\w-])"
 
 URL_RE = re.compile(r"https?://[^\s<>\"')\]]+", re.I)
 PEM_RE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.S)
@@ -67,7 +78,7 @@ BEARER_RE = re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
 PREFIXED_RE = re.compile(r"\b(?:gh[pousr]_|github_pat_|xox[abposr]-|AKIA|AIza|glpat-|sk-|pk-|tk_)[A-Za-z0-9_-]{8,}")
 JWT_RE = re.compile(r"\beyJ[\w-]+\.[\w-]+\.[\w-]+")
 HEX_RE = re.compile(r"\b[0-9a-fA-F]{32,}\b")
-BLOB_RE = re.compile(r"(?<![\w/+=-])[A-Za-z0-9+/_-]{40,}={0,2}(?![\w/+=-])")
+BLOB_RE = re.compile(r"(?<![\w/+=.-])[A-Za-z0-9+/_-]{40,}={0,2}(?![\w/+=-])")
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 MAC_RE = re.compile(r"\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b")
 IP4_RE = re.compile(r"(?<![\d.])((?:\d{1,3}\.){3}\d{1,3})(?![\d])")
@@ -90,6 +101,7 @@ def scrub(text, house=None):
         counts[kind] = counts.get(kind, 0) + 1
 
     ent_map = {}
+    taken = set(re.findall(r"\.(example(?:_\d+)?)\b", text))
 
     # 1. private keys
     def pem(_):
@@ -171,8 +183,8 @@ def scrub(text, house=None):
 
     def ip6(m):
         ip = m.group(0).lower()
-        if ip.startswith("2001:db8") or ip in ("::", "::1"):
-            return m.group(0)
+        if ip.startswith("2001:db8") or ip in ("::", "::1") or len([g for g in ip.split(":") if g]) < 3:
+            return m.group(0)  # also keeps slices such as x[1::2]
         if ip not in seq["ip6"]:
             seq["ip6"][ip] = f"2001:db8::{len(seq['ip6']) + 1}"
         hit("ip")
@@ -181,8 +193,6 @@ def scrub(text, house=None):
 
     # 5. hostnames
     def host(m):
-        if m.group(0).lower() == "host.example.invalid":
-            return m.group(0)
         hit("host")
         return "host.example.invalid"
     text = re.sub(HOST_RE, host, text, flags=re.I)
@@ -199,12 +209,16 @@ def scrub(text, house=None):
     # 7. entity ids
     def entity(m):
         domain, obj = m.group(1), m.group(2)
-        if obj in FILE_EXT or re.fullmatch(r"example(_\d+)?", obj) or obj.startswith(SERVICE_PREFIX):
+        if obj in FILE_EXT or re.fullmatch(r"example(_\d+)?", obj) or (domain in SERVICE_DOMAINS and obj in SERVICES):
             return m.group(0)
         key = (domain, obj)
         if key not in ent_map:
-            seq["entity"] += 1
-            ent_map[key] = "example" if seq["entity"] == 1 else f"example_{seq['entity']}"
+            while True:  # never reuse a placeholder the text already has
+                seq["entity"] += 1
+                name = "example" if seq["entity"] == 1 else f"example_{seq['entity']}"
+                if name not in taken:
+                    break
+            ent_map[key] = name
         hit("entity")
         return f"{domain}.{ent_map[key]}"
     text = ENTITY_RE.sub(entity, text)
@@ -219,7 +233,7 @@ def scrub(text, house=None):
             for piece in pieces:
                 if len(piece) >= 3:
                     terms.append((piece, label))
-    for piece, label in sorted(set(terms), key=lambda t: -len(t[0])):
+    for piece, label in sorted(set(terms), key=lambda t: (-len(t[0]), t[0].lower(), t[1])):
         pattern = re.compile(r"(?<!\w)" + re.escape(piece) + r"(?!\w)", re.I)
 
         def name(m, label=label, piece=piece):
@@ -256,6 +270,7 @@ def _snap(text, n):
 def build_link(title, body, kind=None):
     """{"url", "mode": "full"|"short", "rest": text that did not fit, or None}."""
     body = body.strip("\n")
+    title = title.strip()[:200]  # a title alone can never push the link over the limit
     url = _url(title, body, kind)
     if len(url) <= MAX_URL:
         return {"url": url, "mode": "full", "rest": None}
@@ -356,7 +371,8 @@ def cmd_notify(url, title):
             target = json.load(f).get("review_notify", "") or ""
     except (OSError, ValueError):
         pass
-    if re.fullmatch(r"notify\.[a-z0-9_]+", target):
+    if re.fullmatch(r"(?:notify\.)?[a-z0-9_]+", target):
+        target = target if target.startswith("notify.") else "notify." + target
         supervisor("/core/api/services/notify/" + target.split(".", 1)[1], {
             "title": title, "message": message, "data": {"url": url, "clickAction": url}})
         print("Notified the persistent notification and the phone.")

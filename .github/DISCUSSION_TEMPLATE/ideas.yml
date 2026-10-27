@@ -1,6 +1,6 @@
 # The form behind "Suggestion from Housemate". The agent's pre-filled link
-# (housemate-suggest link) fills `title`, `body` and `kind`; the checkbox is
-# always the person's own to tick.
+# (housemate-suggest link) fills `title`, `body` and `kind`; Submit is
+# always the person's own click.
 title: "Suggestion from Housemate"
 body:
   - type: markdown
@@ -28,10 +28,3 @@ body:
       description: What it does, why it helps, and the text itself. Nothing about your house.
     validations:
       required: true
-  - type: checkboxes
-    id: checked
-    attributes:
-      label: Before you post
-      options:
-        - label: I have read this and it contains nothing personal (no names, addresses, entity names, keys or private links).
-          required: true

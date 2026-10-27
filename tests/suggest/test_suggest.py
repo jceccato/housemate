@@ -56,6 +56,22 @@ class Scrub(unittest.TestCase):
         out = self.scrub("call light.turn_on, automation.reload and homeassistant.restart")
         self.assertEqual(out, "call light.turn_on, automation.reload and homeassistant.restart")
 
+    def test_entities_that_merely_start_like_a_service_are_scrubbed(self):
+        out = self.assertGone("automation.run_kitchen_lights script.call_mum sensor.pressure_bedroom "
+                              "sensor.lock_battery switch.start_pool_pump sensor.media_room_temp",
+                              "kitchen", "call_mum", "pressure", "battery", "pool_pump", "media_room")
+
+    def test_existing_placeholders_are_not_merged_with_new_ones(self):
+        out = self.scrub("light.example is a placeholder; light.kitchen is real")
+        self.assertEqual(out, "light.example is a placeholder; light.example_2 is real")
+
+    def test_code_is_not_mangled(self):
+        text = "x[1::2] and sensor.some_really_long_object_identifier_with_digits_1234567890abcdef"
+        self.assertTrue(self.scrub(text).startswith("x[1::2] and sensor."))
+
+    def test_corp_hosts(self):
+        self.assertGone("ssh nas.corp", "nas.corp")
+
     def test_file_names_are_not_taken_for_entities(self):
         self.assertEqual(self.scrub("edit configuration.yaml and packages/lights.yaml"),
                          "edit configuration.yaml and packages/lights.yaml")
@@ -168,6 +184,9 @@ class Link(unittest.TestCase):
         self.assertEqual(link["mode"], "short")
         self.assertLessEqual(len(link["url"]), S.MAX_URL)
         self.assertGreater(len(link["rest"]), 10000)
+
+    def test_a_huge_title_cannot_break_the_limit(self):
+        self.assertLessEqual(len(S.build_link("t" * 20000, "body")["url"]), S.MAX_URL)
 
     def test_a_multibyte_body_is_measured_encoded(self):
         link = S.build_link("Emoji", "é" * 3000)

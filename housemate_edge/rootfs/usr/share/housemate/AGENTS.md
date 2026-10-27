@@ -91,9 +91,10 @@ natural pause, after the work is done.
 
 1. **Offer once.** First `housemate-suggest state KEY` (KEY is a short stable name
    such as `skill:tidy-lights`). Offer only on `new`. Ask through the `question`
-   tool, recommending "Not now" unless the user has shown interest: "Share this
-   with the Housemate project? I would remove everything personal and show you the
-   exact text first; nothing is sent without your OK." On a no, run
+   tool, with the options "Yes, show me the text" and "No": "Share this with the
+   Housemate project? I would remove everything personal and show you the exact
+   text first; nothing is sent without your OK." Recommend "No" unless the user
+   has shown interest. Any answer other than yes counts as no: run
    `housemate-suggest decline KEY` and never raise that item again.
 2. **Write it generically**, as a short description of what it does and why, then
    the skill, runbook, workflow or rule text itself. No house, person, entity or
@@ -106,8 +107,11 @@ natural pause, after the work is done.
    it until nothing personal is left.
 4. **The user reviews the exact text.** Show the whole text, in full, in the chat,
    then ask through the `question` tool: **Send**, **Edit** (they say what to
-   change; show it again) or **Cancel**. Nothing leaves without Send on exactly
-   the text shown; change one character after Send and ask again.
+   change; run the scrub again on the changed text and show it again) or
+   **Cancel**. Nothing leaves without Send on exactly
+   the text shown; change one character after Send and ask again. If it is long,
+   tell them now that a link carries only the start and that a short note is
+   added at its end saying the rest follows as a comment.
 5. **Send** means build the link, not post. You have no GitHub account here.
    `housemate-suggest link --title "..." --kind <Skill|Runbook or how-to|Workflow or automation pattern|Rule|Other> --file <scrubbed file>`
    prints JSON with a pre-filled GitHub Discussions link in the "Ideas" category.
