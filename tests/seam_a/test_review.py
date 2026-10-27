@@ -197,6 +197,21 @@ class ReviewResume(Base, unittest.TestCase):
         self.addon.restart()
         self.wait_endpoint()
 
+    def decisions(self):
+        return self.addon.logs().count('update review: {"resumed"')
+
+    def restart_and_wait_for_the_decision(self):
+        """Restart, then wait until the add-on has decided whether to carry on, so that a test that
+        expects it NOT to has seen the decision rather than waited a guessed time on a slow runner."""
+        before = self.decisions()
+        self.restart()
+        for _ in range(120):
+            if self.decisions() > before:
+                time.sleep(2)
+                return
+            time.sleep(1)
+        self.fail("the add-on never decided whether to carry on")
+
     def helper(self, *args):
         return json.loads(self.addon.exec("housemate-updates " + " ".join(args)).stdout)
 
@@ -228,8 +243,7 @@ class ReviewResume(Base, unittest.TestCase):
         sid = self.run_daily()["session_id"]
         self.helper("approved", "install")
         before = len(self.opencode_messages(sid))
-        self.restart()
-        time.sleep(15)
+        self.restart_and_wait_for_the_decision()
         self.assertEqual(len(self.opencode_messages(sid)), before, "nothing was sent to the chat")
         steps = self.addon.exec("cat /config/.housemate/updates/progress.json").stdout
         self.assertNotIn("resumed", steps)
@@ -241,8 +255,7 @@ class ReviewResume(Base, unittest.TestCase):
             self.helper("approved", step)
         self.helper("finish")
         before = len(self.opencode_messages(sid))
-        self.restart()
-        time.sleep(15)
+        self.restart_and_wait_for_the_decision()
         self.assertEqual(len(self.opencode_messages(sid)), before)
 
     def test_only_the_add_on_itself_may_continue_a_session(self):
