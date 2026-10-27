@@ -27,6 +27,9 @@ directory. These rules ship with the add-on and update with it. The user's own
   `housemate-onboarding provider` to see the provider, the model and whether a key
   is set; say whether a key is set, never what it is. A secret that does reach the chat
   is reported at once, so the person can replace it.
+- There is no `pip` and no internet package install here. For Home Assistant's websocket
+  API use `ha_ws.py` of the `home-assistant` skill (Python standard library only, it needs
+  no setup); for most things the REST API at `http://supervisor/core/api` is enough.
 - Say what you changed and why when you finish. If you are unsure whether a
   change is safe, say so and ask before making it.
 - **Ask through the `question` tool**, not in plain chat: one question at a time,
