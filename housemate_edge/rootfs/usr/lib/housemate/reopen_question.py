@@ -18,6 +18,7 @@ chats inside it. Nothing else is touched.
 """
 
 import json
+import re
 import subprocess
 import sys
 import time
@@ -59,26 +60,53 @@ def chat_on_screen(title):
     return title[len(TITLE_PREFIX):] if title.startswith(TITLE_PREFIX) else None
 
 
-def unseen_for(base, title, seen):
-    """Chats called `title` with a question pending that this panel has not seen."""
-    chats = [c["id"] for c in (call(base + "/session") or []) if c.get("title") == title]
-    return [q for q in (call(base + "/question") or []) if q.get("sessionID") in chats and q["id"] not in seen]
+def same_title(on_screen, title):
+    """OpenCode shortens a long chat title in the terminal's title with an ellipsis, so a title
+    that ends in one matches by its start."""
+    if on_screen == title:
+        return True
+    if on_screen.endswith("\u2026") or on_screen.endswith("..."):
+        stem = on_screen.rstrip(".\u2026").rstrip()
+        return bool(stem) and title.startswith(stem)
+    return False
 
 
-def watch(base, tmux_session, pane_title, alive, sleep=time.sleep, every=2):
-    """Follow the chat on screen. `pane_title()` and `alive()` are the terminal's; both injected for tests."""
-    seen, last = set(), None
+def unseen_in(base, chat_ids, seen):
+    """Questions pending in those chats which this panel has not seen."""
+    return [q for q in (call(base + "/question") or []) if q.get("sessionID") in chat_ids and q["id"] not in seen]
+
+
+def chats_called(base, title):
+    return [c["id"] for c in (call(base + "/session") or []) if same_title(title, c.get("title") or "")]
+
+
+def watch(base, tmux_session, pane_title, alive, sleep=time.sleep, every=2, opened_on=None):
+    """Follow the chat on screen. `pane_title()` and `alive()` are the terminal's, injected for tests.
+    A tab opened on a known chat (`opened_on`, from the tab's own name) starts with that chat as the one
+    on screen, whatever its title looks like; after that the terminal title says which chat it is."""
+    seen, last, on_screen = set(), None, None
+    first_title = None
     while alive():
         try:
-            name = chat_on_screen(pane_title())
-            if name is not None:
-                if name != last:
-                    last = name
-                    for q in unseen_for(base, name, seen):
-                        reopen(base, q["sessionID"])
-                        seen.add(q["id"])
+            title = pane_title()
+            name = chat_on_screen(title)
+            if opened_on and last is None:
+                chats = [opened_on]
+                first_title = name
+                last = name or ""
+                on_screen = chats
+                for q in unseen_in(base, chats, seen):
+                    reopen(base, q["sessionID"])
+                    seen.add(q["id"])
+            elif name is not None and name != last:
+                last = name
+                on_screen = chats_called(base, name)
+                for q in unseen_in(base, on_screen, seen):
+                    reopen(base, q["sessionID"])
+                    seen.add(q["id"])
+            if on_screen:
                 # what is pending on the chat being looked at was seen when it was asked
-                seen.update(q["id"] for q in unseen_for(base, name, seen))
+                seen.update(q["id"] for q in unseen_in(base, on_screen, seen))
         except Exception as e:  # noqa: BLE001 - the panel works without this
             print(f"reopen_question: {e}", file=sys.stderr)
         sleep(every)
@@ -94,7 +122,8 @@ def tmux_watch(base, session):
     def alive():
         return subprocess.run(sock + ["has-session", "-t", "=" + session], capture_output=True).returncode == 0
 
-    watch(base, session, pane_title, alive)
+    key = re.fullmatch(r"s-(ses_[A-Za-z0-9]+)", session)
+    watch(base, session, pane_title, alive, opened_on=key.group(1) if key else None)
 
 
 def main(argv):

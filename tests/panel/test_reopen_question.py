@@ -24,7 +24,8 @@ class Server(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    chats = [{"id": "ses_a", "title": "Sunset light"}, {"id": "ses_b", "title": "Bins"}, {"id": "ses_c", "title": "Quiet"}]
+    chats = [{"id": "ses_a", "title": "Sunset light"}, {"id": "ses_b", "title": "Bins"}, {"id": "ses_c", "title": "Quiet"},
+             {"id": "ses_long", "title": "Voice: build me a light that turns on at sunset"}]
 
     def do_GET(self):
         self.reply({"/question": Server.pending, "/session": Server.chats}.get(self.path))
@@ -65,7 +66,7 @@ class Watch(unittest.TestCase):
     def setUp(self):
         Reopen.setUp(self)
 
-    def run_watch(self, titles):
+    def run_watch(self, titles, opened_on=None):
         titles = list(titles)
         state = {"i": 0}
 
@@ -77,7 +78,7 @@ class Watch(unittest.TestCase):
             state["i"] += 1
             return t
 
-        reopen_question.watch(self.base, "s-x", title, alive, sleep=lambda s: None)
+        reopen_question.watch(self.base, "s-x", title, alive, sleep=lambda s: None, opened_on=opened_on)
 
     def asked_again(self):
         return [p for p, _ in Server.calls if p.endswith("/prompt_async")]
@@ -104,6 +105,39 @@ class Watch(unittest.TestCase):
             return t
 
         reopen_question.watch(self.base, "s-x", title, lambda: state["i"] < len(seq), sleep=lambda s: None)
+        self.assertEqual(self.asked_again(), [])
+
+    def test_a_tab_opened_on_a_chat_knows_it_whatever_the_terminal_title_says(self):
+        """Seen on the test VM: a long chat title is cut short with an ellipsis in the terminal title."""
+        Server.pending = [{"id": "que_9", "sessionID": "ses_long"}]
+        self.run_watch(["OpenCode", "OC | Voice: build me a light that turns on\u2026", "OC | Voice: build me a light that turns on\u2026"],
+                       opened_on="ses_long")
+        self.assertEqual(self.asked_again(), ["/session/ses_long/prompt_async"])
+
+    def test_switching_to_a_chat_whose_title_is_cut_short_still_finds_it(self):
+        Server.pending = [{"id": "que_9", "sessionID": "ses_long"}]
+        self.run_watch(["OC | Quiet", "OC | Quiet", "OC | Voice: build me a light that turns on\u2026", "OC | Voice: build me a light that turns on\u2026"])
+        self.assertEqual(self.asked_again(), ["/session/ses_long/prompt_async"])
+
+    def test_a_cut_title_matches_by_its_start_and_nothing_else(self):
+        self.assertTrue(reopen_question.same_title("Voice: build me a light\u2026", "Voice: build me a light that turns on"))
+        self.assertTrue(reopen_question.same_title("Bins", "Bins"))
+        self.assertFalse(reopen_question.same_title("Bin\u2026s", "Bins"))
+        self.assertFalse(reopen_question.same_title("Voice: build\u2026", "Bins"))
+        self.assertFalse(reopen_question.same_title("\u2026", "Bins"))
+
+    def test_a_tab_that_saw_its_question_asked_does_not_ask_it_again(self):
+        Server.pending = []
+        seq = ["OC | Sunset light", "OC | Sunset light", "OC | Sunset light"]
+        state = {"i": 0}
+
+        def title():
+            state["i"] += 1
+            if state["i"] == 2:
+                Server.pending = [{"id": "que_live", "sessionID": "ses_a"}]
+            return seq[min(state["i"], 3) - 1]
+
+        reopen_question.watch(self.base, "s-x", title, lambda: state["i"] < 3, sleep=lambda s: None, opened_on="ses_a")
         self.assertEqual(self.asked_again(), [])
 
     def test_a_terminal_that_is_not_showing_a_chat_does_nothing(self):
