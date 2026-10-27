@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.41
+
+- Rules: never print the add-on's own info or options (they carry the key) (#44)
+
 ## 0.1.40
 
 - Notification links name their chat; the panel opens it in front (#43)
