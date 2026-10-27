@@ -8,6 +8,7 @@ tests/seam_a/test_onboarding.py.
 import importlib.machinery
 import importlib.util
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -54,6 +55,40 @@ STATES = [
     state("button.restart", "Restart"),
     state("sun.sun", "Sun"),
 ]
+
+
+class Provider(unittest.TestCase):
+    """The skill finds out what the Configuration tab says without ever seeing the key."""
+
+    def run_with(self, options):
+        import contextlib
+        import io
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "options.json"
+        path.write_text(json.dumps(options))
+        os.environ["HOUSEMATE_OPTIONS"] = str(path)
+        self.addCleanup(os.environ.pop, "HOUSEMATE_OPTIONS", None)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            load(tmp.name).cmd_provider()
+        return out.getvalue()
+
+    def test_it_says_whether_a_key_is_set_and_never_what_it_is(self):
+        out = self.run_with({"provider": "go", "api_key": "sk-secret-0123456789", "model": ""})
+        self.assertIn("key: set", out)
+        self.assertNotIn("sk-secret", out)
+        self.assertIn("provider: go", out)
+        self.assertIn("model: the provider default", out)
+
+    def test_a_blank_or_missing_key_is_not_set(self):
+        self.assertIn("key: not set", self.run_with({"provider": "zen", "api_key": "  "}))
+        self.assertIn("key: not set", self.run_with({"provider": "zen"}))
+
+    def test_an_endpoint_and_model_are_shown(self):
+        out = self.run_with({"provider": "openai-compatible", "base_url": " http://x:8000/v1 ", "model": "m", "api_key": "k"})
+        self.assertIn("base_url: http://x:8000/v1", out)
+        self.assertIn("model: m", out)
 
 
 class Scan(unittest.TestCase):

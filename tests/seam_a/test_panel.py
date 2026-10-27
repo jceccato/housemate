@@ -125,10 +125,19 @@ def permission_problems(addon):
     found = []
     if perm.get("external_directory") != {"/usr/share/housemate/**": "allow"}:
         found.append(f"external_directory is {perm.get('external_directory')}")
-    extra = set(perm) - {"external_directory"}
+    extra = set(perm) - {"external_directory", "bash"}
     if extra:
         found.append(f"other permissions were set: {sorted(extra)}")
+    if set(perm.get("bash", {}).values()) - {"deny"}:
+        found.append(f"bash was widened: {perm.get('bash')}")
     return found
+
+
+def run_bash(addon, command):
+    """The command through OpenCode's own bash tool and the add-on's real permission rules (no model)."""
+    params = json.dumps({"command": command, "description": "test"})
+    r = addon.exec(f"cd /config && opencode debug agent build --tool bash --params '{params}' 2>&1", check=False)
+    return r.stdout
 
 
 POINTER = "/config/.housemate/current-session"
@@ -174,6 +183,28 @@ class Panel(unittest.TestCase):
 
     def test_housemates_own_files_need_no_permission_and_nothing_else_is_widened(self):
         self.assertEqual(permission_problems(self.addon), [])
+
+    def test_a_shell_command_that_names_the_add_ons_own_options_or_key_is_refused(self):
+        a = self.addon
+        a.exec("rm -f /tmp/ran")
+        refused = [
+            "curl -s -H \"Authorization: Bearer $SUPERVISOR_TOKEN\" http://supervisor/addons/self/info",
+            "touch /tmp/ran; curl -s http://supervisor/addons/self/options/config | head -c 800",
+            "touch /tmp/ran && cat /data/options.json",
+            "echo a; jq . /data/options.json",
+            "cat /data/opencode/config/opencode/opencode.json",
+            "curl -s http://supervisor/addons/984d4583_housemate_edge/info",
+        ]
+        for command in refused:
+            self.assertIn("rule which prevents", run_bash(a, command), command)
+        self.assertEqual(a.exec("ls /tmp/ran", check=False).returncode, 2, "a refused command must not have run at all")
+
+    def test_everything_else_in_the_shell_still_runs(self):
+        a = self.addon
+        for command in ("echo fine", "housemate-updates status", "curl -s http://supervisor/core/info -o /dev/null -w ok",
+                        "ls /config"):
+            out = run_bash(a, command)
+            self.assertNotIn("rule which prevents", out, command)
 
     def test_the_sidebar_is_switched_on_once_and_never_again(self):
         self.assertEqual([c["data"] for c in self.sidebar_calls()], [{"ingress_panel": True}])

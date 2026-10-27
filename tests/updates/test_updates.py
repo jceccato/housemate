@@ -184,6 +184,70 @@ class Health(unittest.TestCase):
         self.assertEqual(updates.compare(self.BASE, self.now(repairs=["a/b", "c/d"]), True, ("c/d",)), [])
 
 
+class WaitsForHomeAssistant(unittest.TestCase):
+    """After a reboot the check waits for Home Assistant to answer, and says so in the progress record."""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        old = updates.WORK_DIR
+        updates.WORK_DIR = self.tmp.name
+        self.addCleanup(setattr, updates, "WORK_DIR", old)
+        self.clock = {"t": 0}
+        self.polls = []
+
+    def patched(self, answers):
+        """Home Assistant answers from the Nth look on (None: never)."""
+        from unittest import mock
+
+        def running():
+            self.polls.append(self.clock["t"])
+            return answers is not None and len(self.polls) >= answers
+
+        stack = [mock.patch.object(updates, "running", running),
+                 mock.patch.object(updates, "addresses", lambda: ["10.0.0.5"]),
+                 mock.patch.object(updates, "answers_on", lambda a: True)]
+        for p in stack:
+            p.start()
+            self.addCleanup(p.stop)
+
+    def sleep(self, secs):
+        self.clock["t"] += secs
+
+    def wait(self, **kw):
+        return updates.wait_until_answering(clock=lambda: self.clock["t"], sleep=self.sleep, **kw)
+
+    def test_it_keeps_looking_until_home_assistant_answers_and_records_the_wait(self):
+        self.patched(answers=4)
+        self.assertTrue(self.wait())
+        step = updates.latest_steps()[-1]
+        self.assertEqual((step["step"], step["answering"], step["seconds"]), ("health waited", True, 15))
+
+    def test_it_gives_up_after_the_limit_and_says_it_never_answered(self):
+        self.patched(answers=None)
+        self.assertFalse(self.wait(timeout=30))
+        step = updates.latest_steps()[-1]
+        self.assertEqual((step["step"], step["answering"], step["seconds"]), ("health waited", False, 30))
+
+    def test_a_house_that_is_already_up_is_judged_at_once(self):
+        self.patched(answers=1)
+        self.assertTrue(self.wait())
+        self.assertEqual(updates.latest_steps()[-1]["seconds"], 0)
+
+
+class RebootNotice(unittest.TestCase):
+    def test_the_notice_that_a_reboot_is_pending_is_not_a_fault_but_other_repairs_are(self):
+        from unittest import mock
+        issues = {"issues": [
+            {"domain": "hassio", "issue_id": "b75f", "translation_key": "issue_system_reboot_required"},
+            {"domain": "hassio", "issue_id": "c1", "translation_key": "issue_system_free_space"},
+            {"domain": "hassio", "issue_id": "d2", "translation_key": "issue_system_free_space", "ignored": True},
+        ]}
+        with mock.patch.object(updates.kickoff, "websocket_call", lambda m: issues):
+            self.assertEqual(updates.repairs(), ["hassio/c1"])
+
+
 INDEX = '<a href="/blog/2026/09/02/release-20269/">x</a><a href="/blog/2026/10/07/release-202610/">y</a><a href="/blog/2026/10/07/release-202610/">y</a>'
 POST = """<h2>Intro</h2><p>hi</p>
 <h2>Backward-incompatible changes <a href="#b"></a></h2>

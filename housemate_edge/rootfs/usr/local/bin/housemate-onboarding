@@ -7,6 +7,7 @@ calls for the parts that are code, not conversation.
     housemate-onboarding status                 overall state and each step
     housemate-onboarding step NAME STATE [NOTE] STATE: pending, done or skipped
     housemate-onboarding scan [--dry-run]       entities, areas and devices into the cheat sheet
+    housemate-onboarding provider               the model provider, model and whether a key is set (never the key)
     housemate-onboarding phones                 the notify services of companion-app phones
     housemate-onboarding review-notify SERVICE  set the add-on option review_notify (the daily review's phone) and mark the phone step done
     housemate-onboarding restart-core [--yes]   check the configuration; restart Home Assistant only with --yes
@@ -291,6 +292,20 @@ def cmd_restart_core(confirmed):
     print("Home Assistant restarted and is answering.")
 
 
+def cmd_provider():
+    """What the Configuration tab says, without the key: shell commands that read the add-on's
+    options are refused (the key is in them), so this is how the skill finds out."""
+    path = os.environ.get("HOUSEMATE_OPTIONS", "/data/options.json")
+    with open(path) as f:
+        o = json.load(f)
+    key = str(o.get("api_key") or "").strip()
+    print(f"provider: {o.get('provider') or 'go'}")
+    print(f"model: {(o.get('model') or '').strip() or 'the provider default'}")
+    if (o.get("base_url") or "").strip():
+        print(f"base_url: {o['base_url'].strip()}")
+    print(f"key: {'set' if key else 'not set'}")
+
+
 def cmd_status():
     data = load_state()
     print(f"onboarding: {overall(data)}")
@@ -344,6 +359,8 @@ def main(argv):
         set_review_notify(rest[0])
         set_step("phone", "done", rest[0])
         print(f"The daily update review will notify {rest[0]}.")
+    elif cmd == "provider":
+        cmd_provider()
     elif cmd == "phones":
         found = phones()
         print("\n".join(found) if found else "No companion-app phone is registered with Home Assistant.")

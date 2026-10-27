@@ -398,9 +398,17 @@ def counts():
             "automations_on": sum(s["entity_id"].startswith("automation.") and s["state"] == "on" for s in states)}
 
 
+def expected_pending(issue):
+    """The notice that an installed OS update waits for a reboot. It is the state between the
+    install and the reboot the review asks for, not a fault the update caused (the test VM's
+    first OS update failed its health check on exactly this)."""
+    return "reboot_required" in str(issue.get("translation_key") or "")
+
+
 def repairs():
     r = kickoff.websocket_call({"type": "repairs/list_issues"}) or {}
-    return sorted(f"{i['domain']}/{i['issue_id']}" for i in r.get("issues", []) if not i.get("ignored"))
+    return sorted(f"{i['domain']}/{i['issue_id']}" for i in r.get("issues", [])
+                  if not i.get("ignored") and not expected_pending(i))
 
 
 def error_signatures(hours=24):
@@ -724,9 +732,27 @@ def reboot():
     return {"ok": True, "note": "the host is rebooting; this add-on starts again with it"}
 
 
+HEALTH_WAIT = 300  # seconds to let Home Assistant come back before judging it
+
+
+def wait_until_answering(timeout=HEALTH_WAIT, every=5, clock=time.time, sleep=time.sleep):
+    """After a reboot or a restart Home Assistant takes minutes to answer; judge it only once it
+    does. Recorded either way, so the progress file shows that the check waited and for how long."""
+    start = clock()
+    while True:
+        addrs = addresses()
+        up = running() and all(answers_on(a) for a in addrs)
+        waited = round(clock() - start)
+        if up or waited >= timeout:
+            record({"step": "health waited", "seconds": waited, "answering": up})
+            return up
+        sleep(every)
+
+
 def health(base_file, allow=()):
     with open(base_file) as f:
         base = json.load(f)
+    wait_until_answering()
     addrs = addresses()
     now = {"repairs": repairs(), "error_signatures": error_signatures(), "addresses": addrs,
            "reachable": {a: answers_on(a) for a in addrs}, **counts()}

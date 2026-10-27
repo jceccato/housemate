@@ -111,7 +111,12 @@ esac
 # The permission lets OpenCode read the add-on's own files (the built-in rules,
 # skills and the kit's how-tos under /usr/share/housemate) without asking, because
 # they lie outside the /config workspace. Nothing else is widened: writes keep
-# their defaults.
+# their defaults. One thing is narrowed: a shell command that names where this
+# add-on's own options or provider key live (its Supervisor info and options,
+# /data/options.json, OpenCode's own config) is refused, whatever else the command
+# does (the patterns are globs over the whole command line). That stops the key
+# being printed by accident, as an update review once did; it is not a wall against
+# a deliberate attack, since the key must be readable by the process that uses it.
 jq --arg id "${provider_id}" --arg default_model "${default_model}" --arg provider "${provider}" '
     {
         "$schema": "https://opencode.ai/config.json",
@@ -124,6 +129,14 @@ jq --arg id "${provider_id}" --arg default_model "${default_model}" --arg provid
         permission: {
             external_directory: {
                 "/usr/share/housemate/**": "allow"
+            },
+            bash: {
+                "*addons/self*": "deny",
+                "*/addons/*/info*": "deny",
+                "*/addons/*/options*": "deny",
+                "*options.json*": "deny",
+                "*opencode.json*": "deny",
+                "*/data/opencode*": "deny"
             }
         }
     }

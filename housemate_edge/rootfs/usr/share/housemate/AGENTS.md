@@ -23,8 +23,9 @@ directory. These rules ship with the add-on and update with it. The user's own
   `!secret`, and do not display or copy the values. **Your own add-on holds your
   provider key**: never print `/data/options.json`, the Supervisor's
   `/addons/self/info` or `/addons/self/options/config`, or `ha apps info` (they
-  carry `api_key`). Ask for one field (`jq -r .provider /data/options.json`), and
-  say whether a key is set, never what it is. A secret that does reach the chat
+  carry `api_key`). Shell commands that name those places are refused. Use
+  `housemate-onboarding provider` to see the provider, the model and whether a key
+  is set; say whether a key is set, never what it is. A secret that does reach the chat
   is reported at once, so the person can replace it.
 - Say what you changed and why when you finish. If you are unsure whether a
   change is safe, say so and ask before making it.
