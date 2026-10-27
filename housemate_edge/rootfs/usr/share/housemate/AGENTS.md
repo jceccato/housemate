@@ -20,7 +20,12 @@ directory. These rules ship with the add-on and update with it. The user's own
 - Run Home Assistant's configuration check before any restart, and prefer
   reloading the one thing you changed over a restart.
 - Never print a secret. Read `secrets.yaml` by name only: refer to keys with
-  `!secret`, and do not display or copy the values.
+  `!secret`, and do not display or copy the values. **Your own add-on holds your
+  provider key**: never print `/data/options.json`, the Supervisor's
+  `/addons/self/info` or `/addons/self/options/config`, or `ha apps info` (they
+  carry `api_key`). Ask for one field (`jq -r .provider /data/options.json`), and
+  say whether a key is set, never what it is. A secret that does reach the chat
+  is reported at once, so the person can replace it.
 - Say what you changed and why when you finish. If you are unsure whether a
   change is safe, say so and ask before making it.
 - **Ask through the `question` tool**, not in plain chat: one question at a time,

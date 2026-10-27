@@ -165,6 +165,8 @@ class AsksThroughTheQuestionTool(unittest.TestCase):
         self.assertIn("restart now\n(**recommended**", onboarding)
         self.assertIn("for\nany other reason recommends \"later\"", onboarding)
         self.assertIn("`question` tool", (base / "AGENTS.md").read_text())
+        rules = (base / "AGENTS.md").read_text()
+        self.assertIn("/addons/self/info", rules)  # the add-on's own info carries the provider key
         self.assertIn("`question` tool", (base / "kit/.opencode/skills/orchestrator/SKILL.md").read_text())
         self.assertIn("`question` tool", (base / "skills/update-review/SKILL.md").read_text())
 
