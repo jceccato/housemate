@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.39
+
+- Update https://github.com/mattpocock/skills digest to 59db609 (#41)
+
 ## 0.1.38
 
 - Open the marked chat in front; start onboarding by itself on the first open (#40)
