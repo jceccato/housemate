@@ -163,7 +163,7 @@ class Voice(unittest.TestCase):
         self.assertIn("build me a night light", self.wait_for(lambda: self.texts(sid)))
 
         phone = self.wait_for(lambda: self.calls_for("notify/mobile_app_test_phone", sid))[0]["data"]
-        self.assertEqual(phone["data"]["url"], "/app/local_housemate_edge")
+        self.assertEqual(phone["data"]["url"], f"/app/local_housemate_edge/{sid}")  # the link names the chat
         self.assertEqual(phone["data"]["url"], phone["data"]["clickAction"])
         persistent = self.calls_for("persistent_notification/create", sid)
         self.assertIn("night light", persistent[0]["data"]["message"])
@@ -214,7 +214,7 @@ class Voice(unittest.TestCase):
         needs = self.wait_for(lambda: [c for c in self.calls_for("notify/mobile_app_test_phone", sid)
                                        if "needs you" in c["data"]["title"].lower()])
         self.assertIn("Which room", needs[0]["data"]["message"])
-        self.assertIn("local_housemate_edge", needs[0]["data"]["data"]["url"])
+        self.assertEqual(needs[0]["data"]["data"]["url"], f"/app/local_housemate_edge/{sid}")
 
     # -- the blueprint and its action -------------------------------------------------
 

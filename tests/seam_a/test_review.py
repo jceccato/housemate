@@ -106,15 +106,15 @@ class Review(Base, unittest.TestCase):
         self.assertIn("not updated by housemate", text.lower())
         self.assertIn("lamp_firmware", text)
         self.assertNotIn("supervisor_update", text, "an update that is not waiting is not listed")
-        self.assertIn(f"(/app/{SELF})", text)
+        self.assertRegex(text, rf"\(/app/{SELF}/ses_[A-Za-z0-9]+\)")
 
     def test_the_phone_gets_the_same_summary_with_a_review_button(self):
         self.run_daily()
         phone = self.calls("notify/mobile_app_test_phone")[-1]["data"]
         self.assertIn("5 updates and", phone["message"].lower() + " " + phone["title"].lower())
-        self.assertEqual(phone["data"]["url"], f"/app/{SELF}")
+        self.assertRegex(phone["data"]["url"], rf"^/app/{SELF}/ses_[A-Za-z0-9]+$")  # the link names the review's chat
         action = phone["data"]["actions"][0]
-        self.assertEqual((action["title"], action["uri"]), ("Review", f"/app/{SELF}"))
+        self.assertEqual((action["title"], action["uri"]), ("Review", phone["data"]["url"]))
 
     def test_review_opens_a_briefed_chat_in_which_nothing_has_run(self):
         done = self.run_daily()

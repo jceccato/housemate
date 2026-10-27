@@ -785,7 +785,7 @@ def daily():
     sid = state.get("session_id") if state.get("digest") == key else None
     if not session_exists(sid):
         sid = prepare_session(summary, target)
-    url = kickoff.panel_url()
+    url = kickoff.panel_url(sid)
     message = (f"{summary['text']}\n\nA review is ready in Housemate: open it and say go. It reads the release notes "
                "against your configuration, makes a backup, and asks twice (install, then restart) before it changes anything.")
     delivered = []
