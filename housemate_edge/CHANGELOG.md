@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.42
+
+- Refuse shell commands that name the add-on's own options or key; the review's health check waits and ignores the reboot notice (#45)
+
 ## 0.1.41
 
 - Rules: never print the add-on's own info or options (they carry the key) (#44)
