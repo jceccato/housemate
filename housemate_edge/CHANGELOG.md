@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.43
+
+- Choose the name you call Housemate by in Assist (#46)
+
 ## 0.1.42
 
 - Refuse shell commands that name the add-on's own options or key; the review's health check waits and ignores the reboot notice (#45)
