@@ -40,7 +40,8 @@ anything can be undone with a sentence.
   optional private remote, the voice sentence, which it installs and restarts
   Home Assistant for only when you say yes to each) and builds one small
   automation with you.
-- **Voice**: say "Housemate, build me ..." to Assist and a job starts in the
+- **Voice**: say "Housemate, build me ..." (or a name you choose, "Jarvis, build
+  me ...") to Assist and a job starts in the
   chat; a notification tells you when it needs you or is done.
 - **A daily update review**: one notification covers everything waiting (Home
   Assistant Core, the OS, add-ons, HACS, Housemate, kit changes). Its Review

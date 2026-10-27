@@ -167,6 +167,9 @@ files; authentication and integration credentials are never tracked. Edit
 ## Voice kick-off
 
 Say "Housemate, build me ..." to Assist and a job starts in Housemate's chat.
+You can call it by another name ("Jarvis, build me ..."): onboarding asks what it
+should answer to, and you can change it any time by asking the agent ("call
+yourself Jarvis"); it needs a reload of automations, not a restart.
 Your phone gets a notification that opens Housemate, a persistent notification
 appears in Home Assistant, and there is another when the job needs an answer or
 is done. A request from someone who is not a Home Assistant administrator (or

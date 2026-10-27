@@ -60,7 +60,8 @@ class Onboarding(unittest.TestCase):
         skills = json.loads(self.sh("cd /config && opencode debug skill").stdout)
         skill = next(s for s in skills if s["name"] == "onboarding")
         for needle in ("/config/scripts/git-init.sh", "housemate-voice-install", "housemate-onboarding scan",
-                       "housemate-onboarding phones", "orchestrator"):
+                       "housemate-onboarding phones", "orchestrator", "What should I answer to?",
+                       "housemate-voice check", "housemate-voice write-package"):
             self.assertIn(needle, skill["content"])
 
     def test_the_skill_is_the_add_ons_not_the_kits_and_a_start_restores_it(self):

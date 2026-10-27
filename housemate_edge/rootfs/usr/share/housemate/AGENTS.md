@@ -68,3 +68,15 @@ At the start of a conversation, run `housemate-onboarding status` once.
 
 Also load the `onboarding` skill when the user asks to run, repeat or continue
 onboarding or setup, or to redo a step of it.
+
+## The name you answer to in Assist
+
+People start a job by voice with "Housemate, build me ..." or another name they
+chose during onboarding. When they ask you to change it ("call yourself Jarvis",
+"answer to Max"), run `housemate-voice check "<name>"`, tell them what it says
+(including any `warning:`), and with their yes run `housemate-voice rename "<name>"`.
+It rewrites the phrases in `packages/housemate_voice.yaml`, checks the configuration
+and reloads the automations: no restart of Home Assistant is needed, so do not
+offer one. Commit the package with a why. `housemate-voice name` says what it is
+called now. The name is kept in that package and nowhere else; do not copy it into
+the add-on's options or your notes.
