@@ -35,6 +35,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import parse_qs, urlsplit
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 OPENCODE = os.environ.get("HOUSEMATE_OPENCODE_URL", "http://127.0.0.1:4096")
@@ -61,6 +62,9 @@ STATE_FILE = os.environ.get("HOUSEMATE_KICKOFF_STATE", "/data/kickoff/sessions.j
 # The launcher (housemate-agent) reads it; with none, or a session that no longer
 # exists, it opens the newest chat.
 CURRENT_FILE = os.environ.get("HOUSEMATE_CURRENT_SESSION", "/config/.housemate/current-session")
+# A link that names a chat (deeplink.js posts it here): the launcher in the editor
+# watches this file and brings that chat's tab to the front.
+OPEN_FILE = os.environ.get("HOUSEMATE_OPEN_REQUEST", "/config/.housemate/open-request")
 MAX_TEXT = 2000
 MAX_TRACKED = 200
 
@@ -110,8 +114,13 @@ def addon_slug():
     return _slug
 
 
-def panel_url():
-    return f"{APP_PREFIX}/{addon_slug()}{CHAT_PATH}"
+def panel_url(session_id=None):
+    """The panel's link. With a chat id it names that chat: Home Assistant passes
+    the part after the add-on's slug to the panel as its route (deeplink.js)."""
+    url = f"{APP_PREFIX}/{addon_slug()}{CHAT_PATH}"
+    if isinstance(session_id, str) and re.fullmatch(r"ses_[A-Za-z0-9]+", session_id):
+        url += f"/{session_id}"
+    return url
 
 
 def service(domain, name, data):
@@ -208,7 +217,7 @@ def normalise_target(target):
 
 
 def notify(session_id, target, title, message):
-    url = panel_url()
+    url = panel_url(session_id)
     if target:
         service("notify", target, {
             "title": title,
@@ -382,7 +391,28 @@ class Handler(BaseHTTPRequestHandler):
         notify(sid, target, "Housemate is carrying on", f"{title}: the update review continues by itself.")
         self.reply(202, {"session_id": sid, "resumed": True, "url": panel_url()})
 
+    def open_chat(self):
+        """The panel was opened by a link naming a chat. Only the add-on's own proxy may say so."""
+        if self.client_address[0] != "127.0.0.1":
+            return self.reply(403, {"error": "only the panel asks for a chat"})
+        sid = (parse_qs(urlsplit(self.path).query).get("session") or [""])[0]
+        if not re.fullmatch(r"ses_[A-Za-z0-9]+", sid):
+            return self.reply(400, {"error": "session is not a session id"})
+        try:
+            call("GET", f"{OPENCODE}/session/{sid}")
+            os.makedirs(os.path.dirname(OPEN_FILE), exist_ok=True)
+            tmp = OPEN_FILE + ".tmp"
+            with open(tmp, "w") as f:
+                f.write(sid + "\n")
+            os.replace(tmp, OPEN_FILE)
+        except Exception as e:  # noqa: BLE001
+            log(f"could not open {sid}: {e}")
+            return self.reply(404, {"error": "no such chat"})
+        self.reply(202, {"session_id": sid})
+
     def do_POST(self):
+        if urlsplit(self.path).path == "/open":
+            return self.open_chat()
         if self.path != "/kickoff":
             return self.reply(404, {"error": "not found"})
         try:

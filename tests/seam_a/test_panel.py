@@ -40,7 +40,7 @@ const load = Module._load;
 Module._load = (r, ...a) => (r === 'vscode' ? vscode : load(r, ...a));
 const ext = require(process.argv[2]);
 ext.activate({ subscriptions: [] });
-setTimeout(() => { console.log(JSON.stringify({ created, shown, commands })); process.exit(0); }, 4000);
+setTimeout(() => { console.log(JSON.stringify({ created, shown, commands })); process.exit(0); }, 6500);
 """
 
 
@@ -243,6 +243,29 @@ class Panel(unittest.TestCase):
         chats = json.loads(a.exec("curl -s localhost:4096/session").stdout)
         welcome = [c for c in chats if c["id"] == made[0]["shellArgs"][1]]
         self.assertEqual([c["title"] for c in welcome], ["Welcome to Housemate"])
+
+    def ingress(self, *curl):
+        return docker("exec", self.addon.ingress_client, "curl", "-s", "-w", "\n%{http_code}", *curl, check=False).stdout.rsplit("\n", 1)
+
+    def test_a_link_naming_a_chat_reaches_the_editor_and_its_tab_comes_to_the_front(self):
+        a = self.addon
+        self.wait_endpoint()
+        status, _, page = a.get("/?folder=/config")
+        self.assertIn("_housemate/deeplink.js", page)
+        script = a.get("/_housemate/deeplink.js")[2]
+        self.assertIn("home-assistant/subscribe-properties", script)
+        chat = new_session(a, "the chat a link names")
+        url = f"http://{a.name}:1337/_housemate/open"
+        a.exec("rm -f /config/.housemate/open-request")
+        self.assertEqual(self.ingress("-X", "POST", f"{url}?session=ses_nothere")[1], "404")
+        self.assertEqual(self.ingress("-X", "POST", f"{url}?session=../../etc")[1], "400")
+        self.assertEqual(self.ingress(f"{url}?session={chat}")[1], "403", "only POST")
+        self.assertEqual(a.exec("ls /config/.housemate/open-request", check=False).returncode, 2)
+        self.assertEqual(self.ingress("-X", "POST", f"{url}?session={chat}")[1], "202")
+        self.assertEqual(a.exec("cat /config/.housemate/open-request").stdout.strip(), chat)
+        # The editor, with the agent already open, puts that chat's tab in front.
+        made = launcher(a, ["OpenCode"])
+        self.assertIn((AGENT, ["--session", chat]), [(t["shellPath"], t["shellArgs"]) for t in made["created"]])
 
     def test_the_editor_page_carries_the_reconnect_helper(self):
         a = self.addon

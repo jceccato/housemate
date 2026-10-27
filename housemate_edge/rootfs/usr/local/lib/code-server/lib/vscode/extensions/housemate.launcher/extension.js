@@ -13,6 +13,11 @@
 // instance; tests/seam_a/test_panel.py drives this file in the editor's node.
 
 const NAME = "OpenCode";
+// A link that names a chat (deeplink.js, via the add-on) leaves its id here.
+const OPEN_REQUEST = "/config/.housemate/open-request";
+const REQUEST_POLL_MS = 1000;
+// A request this young when the window starts was made by the link that opened it.
+const FRESH_MS = 60000;
 const CWD = "/config";
 // How long to wait for a restored terminal to show up before deciding there is
 // none: after a reload the editor revives the previous tab a moment later.
@@ -42,6 +47,9 @@ function findOpenCode(terminals) {
 function activate(context) {
   const vscode = require("vscode");
   const cp = require("child_process");
+
+  const fs = require("fs");
+  const tabs = new Map(); // chat id -> its terminal
 
   const open = (openCodeArgs) =>
     vscode.window.createTerminal({
@@ -73,13 +81,39 @@ function activate(context) {
     });
   }
 
+  // The chat's tab in front: the one already open for it, else a new one.
+  function showChat(id) {
+    const tab = tabs.get(id);
+    if (tab && tab.exitStatus === undefined) { tab.show(); return; }
+    const t = open(["--session", id]);
+    tabs.set(id, t);
+    t.show();
+  }
+
   async function openPanel() {
     const id = await takeChat();
     if (!/^[A-Za-z0-9_-]+$/.test(id)) { openAgent(); return; }
     const existing = findOpenCode(vscode.window.terminals);
     if (existing && existing.exitStatus !== undefined) existing.dispose();
-    open(["--session", id]).show();
+    showChat(id);
     closeBottomPanel();
+  }
+
+  // A link that names a chat: bring its tab to the front, whether the panel was
+  // just opened by the link or was open already.
+  function watchRequests() {
+    let handled = 0;
+    const stat = () => { try { return fs.statSync(OPEN_REQUEST); } catch { return null; } };
+    const first = stat();
+    if (first && Date.now() - first.mtimeMs > FRESH_MS) handled = first.mtimeMs;
+    setInterval(() => {
+      const st = stat();
+      if (!st || st.mtimeMs <= handled) return;
+      handled = st.mtimeMs;
+      let id = "";
+      try { id = fs.readFileSync(OPEN_REQUEST, "utf8").trim(); } catch { return; }
+      if (/^ses_[A-Za-z0-9]+$/.test(id)) { showChat(id); closeBottomPanel(); }
+    }, REQUEST_POLL_MS);
   }
 
   function newChat() {
@@ -97,7 +131,7 @@ function activate(context) {
       return;
     }
     const choice = await vscode.window.showQuickPick(picked, { placeHolder: "Choose a chat to continue" });
-    if (choice) open(["--session", choice.id]).show();
+    if (choice) showChat(choice.id);
   }
 
   context.subscriptions.push(
@@ -117,7 +151,8 @@ function activate(context) {
 
   // On start of a window (a fresh open, a reload, a reconnect after the add-on
   // restarted): wait for a revived tab, then open the agent only if none came back.
-  setTimeout(() => { openPanel(); }, SETTLE_MS);
+  // The link's request is looked at after that, so its chat ends up in front.
+  setTimeout(async () => { await openPanel(); watchRequests(); }, SETTLE_MS);
 }
 
 function deactivate() {}
