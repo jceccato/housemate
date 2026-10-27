@@ -227,6 +227,7 @@ class Panel(unittest.TestCase):
     def test_a_marked_chat_gets_a_tab_in_front_even_when_the_agent_is_already_open(self):
         a = self.addon
         self.wait_endpoint()
+        a.exec("rm -f /config/.housemate/open-request")  # a link from another test is not this one's
         launcher(a, [])  # a first run: the welcome chat is made, and nothing else is pending
         job = self.kickoff({"text": "build me a night light", "user_id": ADMIN, "notify": "notify.mobile_app_test_phone"})["session_id"]
         made = launcher(a, ["OpenCode"])["created"]
@@ -236,7 +237,7 @@ class Panel(unittest.TestCase):
 
     def test_a_first_run_opens_a_welcome_chat_that_has_been_asked_to_start_onboarding(self):
         a = self.addon
-        a.exec("rm -f /config/.housemate/welcome-session /config/.housemate/onboarding.json")
+        a.exec("rm -f /config/.housemate/welcome-session /config/.housemate/onboarding.json /config/.housemate/open-request")
         made = launcher(a, [])["created"]
         self.assertEqual(len(made), 1)
         self.assertEqual(made[0]["shellArgs"][0], "--session")
@@ -266,6 +267,7 @@ class Panel(unittest.TestCase):
         # The editor, with the agent already open, puts that chat's tab in front.
         made = launcher(a, ["OpenCode"])
         self.assertIn((AGENT, ["--session", chat]), [(t["shellPath"], t["shellArgs"]) for t in made["created"]])
+        a.exec("rm -f /config/.housemate/open-request")
 
     def test_the_editor_page_carries_the_reconnect_helper(self):
         a = self.addon
