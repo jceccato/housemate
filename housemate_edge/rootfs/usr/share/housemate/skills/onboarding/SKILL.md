@@ -58,9 +58,12 @@ Housemate's model comes from the add-on's Configuration tab. Without printing
 the key, find out what is set:
 
 ```bash
-jq -r '.provider' /data/options.json
-jq -r '(.api_key // "") | length > 0' /data/options.json
+housemate-onboarding provider
 ```
+
+(It prints the provider, the model, the `base_url` if there is one, and whether a key
+is set. A shell command that reads the add-on's options file is refused, because the
+key is in it.)
 
 You are answering them, so the provider is working. Tell them: which provider
 (`go` is OpenCode Go, `zen` is OpenCode Zen, `openai-compatible` is any
