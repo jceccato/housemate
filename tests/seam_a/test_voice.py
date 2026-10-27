@@ -246,11 +246,27 @@ class Voice(unittest.TestCase):
         self.assertIn("notify_service", bp["blueprint"]["input"])
         trigger = bp["triggers"][0]
         self.assertEqual(trigger["trigger"], "conversation")
-        self.assertTrue(any(c.lower().startswith("housemate ") and "{request}" in c for c in trigger["command"]))
+        self.assertEqual(trigger["command"], "input:phrases")  # the sentences are the automation's, so the name can change
+        default = bp["blueprint"]["input"]["phrases"]["default"]
+        self.assertTrue(any(c.lower().startswith("housemate ") and "{request}" in c for c in default))
         call = bp["actions"][0]
         self.assertEqual(call["action"], "rest_command.housemate_kickoff")
         self.assertEqual(call["data"]["notify"], "input:notify_service")
         self.assertIn("user_id", call["data"])
+
+    def test_the_voice_name_is_written_into_a_package_that_uses_the_blueprint_and_can_be_renamed(self):
+        a = self.addon
+        a.exec("rm -f /config/packages/housemate_voice.yaml")
+        self.assertIn("Wrote", a.exec("housemate-voice write-package Jarvis notify.mobile_app_test_phone").stdout)
+        package = yaml.safe_load(a.exec("cat /config/packages/housemate_voice.yaml").stdout)
+        entry = package["automation"][0]
+        self.assertEqual(entry["use_blueprint"]["path"], "housemate/voice_kickoff.yaml")
+        self.assertEqual(entry["use_blueprint"]["input"]["phrases"], ["Jarvis {request}", "Hey Jarvis {request}"])
+        self.assertEqual(entry["use_blueprint"]["input"]["notify_service"], "notify.mobile_app_test_phone")
+        self.assertEqual(a.exec("housemate-voice name").stdout.strip(), "Jarvis")
+        r = a.exec("housemate-voice check Turn", check=False)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("start with", r.stderr)
 
     def test_the_installer_leaves_a_users_own_rest_command_alone(self):
         addon = VoiceAddOn({"provider": "zen", "api_key": "k"}, {"configuration.yaml": "rest_command:\n  mine:\n    url: http://x\n"})

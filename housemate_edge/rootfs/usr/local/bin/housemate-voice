@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""The name you call Housemate by in Assist ("Housemate, build me ...").
+
+The name lives in one place: the `phrases` input of the voice automation in
+/config/packages/housemate_voice.yaml, which is tracked in git and is what Home
+Assistant listens for. Nothing else stores it.
+
+    housemate-voice check NAME          is it a good name? Prints the name as it will be used
+                                        and any warning; exit 1 with the reason when it is not
+    housemate-voice write-package NAME [NOTIFY]
+                                        write packages/housemate_voice.yaml (NOTIFY: the phone's
+                                        notify service, empty for none); refuses if one exists
+    housemate-voice name                the name in use now
+    housemate-voice rename NAME         change the name: rewrite the phrases, check the
+                                        configuration and reload the automations (no restart)
+
+Home Assistant matches an automation's sentences before its own, so the name cannot
+make a built-in command stop working, but a name that starts like a command would be
+confusing to say, and some words are refused for that reason. Standard library only.
+"""
+
+import json
+import os
+import re
+import sys
+import urllib.request
+
+CONFIG = os.environ.get("HOUSEMATE_CONFIG", "/config")
+PACKAGE = os.path.join(CONFIG, "packages", "housemate_voice.yaml")
+CORE = os.environ.get("HOUSEMATE_CORE_URL", "http://supervisor/core")
+DEFAULT = "Housemate"
+MAX_LENGTH = 24
+MAX_WORDS = 3
+
+# Words Home Assistant's own sentences begin with (and a few that make a name hard to say
+# naturally): a name starting with one is refused.
+REFUSED = set("""turn switch set open close lock unlock what whats what's is are how when where who why
+add remove play pause resume stop next previous cancel start toggle increase decrease dim brighten
+make show tell ok okay hey please the a an my i yes no shopping list timer alarm weather time date
+volume mute unmute restart reload run call do does can could would should""".split())
+WARNED = set("assist home house light lights music news computer".split())
+
+
+class BadName(ValueError):
+    pass
+
+
+def normalise(name):
+    name = re.sub(r"\s+", " ", str(name or "").strip().strip(",").strip())
+    name = re.sub(r"^hey\s+", "", name, flags=re.I)
+    return name
+
+
+def check(name, known_names=()):
+    """(name, warnings) or raises BadName with the reason."""
+    name = normalise(name)
+    if not name:
+        raise BadName("The name is empty.")
+    if len(name) > MAX_LENGTH:
+        raise BadName(f"Keep the name to {MAX_LENGTH} characters or fewer.")
+    if len(name.split()) > MAX_WORDS:
+        raise BadName(f"Keep the name to {MAX_WORDS} words or fewer.")
+    bad = sorted({c for c in name if not (c.isalpha() or c.isdigit() or c in " '-")})
+    if bad:
+        raise BadName("Use letters, digits, spaces, apostrophes and hyphens only (not " + " ".join(bad) + ").")
+    first = name.split()[0].lower()
+    if first in REFUSED or name.lower() in REFUSED:
+        raise BadName(f'"{first}" is a word Home Assistant\'s own commands start with, so "{name}, ..." would be easy to mix up. Choose another name.')
+    warnings = []
+    if name.lower() in WARNED:
+        warnings.append(f'"{name}" is an everyday word: it will be said by accident. A rarer name works better.')
+    if name.lower() in {k.lower() for k in known_names}:
+        warnings.append(f'A device or area in this house is also called "{name}".')
+    return name, warnings
+
+
+def phrases(name):
+    return [f"{name} {{request}}", f"Hey {name} {{request}}"]
+
+
+def package_text(name, notify=""):
+    lines = ["# Housemate: the voice kick-off. The name you call Housemate by is the first phrase below",
+             "# (change it by asking the agent, or with `housemate-voice rename`).",
+             "automation:", "  - id: housemate_voice_kickoff", "    alias: Housemate voice kick-off",
+             "    use_blueprint:", "      path: housemate/voice_kickoff.yaml", "      input:",
+             f"        notify_service: {json.dumps(notify or '')}", "        phrases:"]
+    lines += [f"          - {json.dumps(p)}" for p in phrases(name)]
+    return "\n".join(lines) + "\n"
+
+
+def current_name(text):
+    m = re.search(r'^\s+phrases:\s*\n\s+- "(.*?) \{request\}"', text, re.M)
+    return m.group(1) if m else None
+
+
+def rename_text(text, name):
+    block = re.search(r"(^\s+phrases:\s*\n)((?:\s+- .*\n?)+)", text, re.M)
+    if not block:
+        raise BadName("This package has no phrases to rename (was it written by housemate-voice?).")
+    indent = re.match(r"\s+", block.group(2)).group(0)
+    new = block.group(1) + "".join(f"{indent}- {json.dumps(p)}\n" for p in phrases(name))
+    return text[:block.start()] + new + text[block.end():]
+
+
+def api(path, method="GET", body=None):
+    req = urllib.request.Request(CORE + path, data=json.dumps(body).encode() if body is not None else None, method=method,
+                                 headers={"Authorization": "Bearer " + os.environ.get("SUPERVISOR_TOKEN", ""),
+                                          "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        raw = r.read().decode()
+    return json.loads(raw) if raw else None
+
+
+def house_names():
+    """Friendly names of entities, for the 'also called' warning. Best effort."""
+    try:
+        return [s["attributes"].get("friendly_name", "") for s in api("/api/states")]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def main(argv):
+    cmd, rest = (argv[0] if argv else ""), argv[1:]
+    try:
+        if cmd == "check" and len(rest) >= 1:
+            name, warnings = check(" ".join(rest), house_names())
+            print(f"name: {name}")
+            print(f"you will say: {phrases(name)[0].replace('{request}', 'build me ...')}")
+            for w in warnings:
+                print(f"warning: {w}")
+        elif cmd == "write-package" and rest:
+            name, warnings = check(rest[0], house_names())
+            if os.path.exists(PACKAGE):
+                print(f"{PACKAGE} already exists; use rename.", file=sys.stderr)
+                return 1
+            os.makedirs(os.path.dirname(PACKAGE), exist_ok=True)
+            with open(PACKAGE, "w") as f:
+                f.write(package_text(name, rest[1] if len(rest) > 1 else ""))
+            print(f"Wrote {PACKAGE} for the name {name}.")
+            for w in warnings:
+                print(f"warning: {w}")
+        elif cmd == "name":
+            with open(PACKAGE) as f:
+                print(current_name(f.read()) or DEFAULT)
+        elif cmd == "rename" and rest:
+            name, warnings = check(" ".join(rest), house_names())
+            with open(PACKAGE) as f:
+                text = f.read()
+            if current_name(text) == name:
+                print(f"Already called {name}.")
+                return 0
+            with open(PACKAGE, "w") as f:
+                f.write(rename_text(text, name))
+            result = (api("/api/config/core/check_config", "POST") or {}).get("result")
+            print(f"Configuration check: {result}")
+            if result != "valid":
+                with open(PACKAGE, "w") as f:
+                    f.write(text)
+                print("The check failed, so the old name was put back.", file=sys.stderr)
+                return 1
+            api("/api/services/automation/reload", "POST", {})
+            print(f"Renamed: say \"{name}, build me ...\". The automations were reloaded; no restart is needed.")
+            for w in warnings:
+                print(f"warning: {w}")
+        else:
+            print(__doc__, file=sys.stderr)
+            return 2
+    except BadName as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    except OSError as e:
+        print(f"{e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

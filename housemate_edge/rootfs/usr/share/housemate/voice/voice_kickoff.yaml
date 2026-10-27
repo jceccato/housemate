@@ -1,8 +1,8 @@
 blueprint:
   name: Housemate voice kick-off
   description: >-
-    Say "Housemate, build me ..." to Assist and Housemate starts a job in its
-    chat. A notification on your phone opens it, and tells you when the job
+    Say "Housemate, build me ..." to Assist (or the name you chose) and Housemate
+    starts a job in its chat. A notification on your phone opens it, and tells you when the job
     needs an answer or is done. A request from someone who is not a Home
     Assistant administrator waits in the chat for an administrator.
   domain: automation
@@ -17,14 +17,24 @@ blueprint:
       default: ""
       selector:
         text:
+    phrases:
+      name: What to say
+      description: >-
+        The sentences that start a job, with {request} for the rest of what you
+        say. The first words are the name you call Housemate by. Change it by
+        asking the agent, which keeps this list in step.
+      default:
+        - "Housemate {request}"
+        - "Hey Housemate {request}"
+      selector:
+        text:
+          multiple: true
 
 # Needs the `rest_command.housemate_kickoff` action, which the add-on's
 # `housemate-voice-install` script sets up with the blueprint.
 triggers:
   - trigger: conversation
-    command:
-      - "Housemate {request}"
-      - "Hey Housemate {request}"
+    command: !input phrases
 
 actions:
   - action: rest_command.housemate_kickoff

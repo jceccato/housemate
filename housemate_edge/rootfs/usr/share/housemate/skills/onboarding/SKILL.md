@@ -197,7 +197,7 @@ Mark the step done, or skipped with the reason.
 ## 6. Voice: "Housemate, build me ..."  (`voice`)
 
 Explain: they can say a sentence to Assist ("Housemate, build me a night light
-for the hall") and a job starts in this chat; their phone buzzes when it needs
+for the hall", or whatever name they choose for you) and a job starts in this chat; their phone buzzes when it needs
 them or is done. Installing it adds a blueprint, a small file, a line in
 `configuration.yaml` and an automation. Home Assistant only picks the new action
 up after a restart, but the restart is a **separate question, asked later**.
@@ -207,7 +207,21 @@ yes, install it (recommended); skip for now. Say in the question that nothing
 restarts yet. Never fold the restart into this question or its option labels.
 On no, mark `voice` skipped and go on to step 7.
 
-On a yes:
+On a yes, first **the name, with the question tool: "What should I answer to?"**
+Options: `Housemate` (recommended), and the tool's own "Type your own answer" for
+another name ("Jarvis"). Check what they chose before using it:
+
+```bash
+housemate-voice check "<their answer>"
+```
+
+It prints the name as it will be used, or says why it will not do (empty, too long,
+a word Home Assistant's own commands begin with). When it refuses, say why in a
+sentence and ask again through the tool. A line starting `warning:` (an everyday
+word, or a device in the house with the same name) is passed on to them, and they
+may still keep it. The name lives only in the voice package, nowhere else.
+
+Then:
 
 ```bash
 housemate-voice-install
@@ -225,17 +239,11 @@ housemate-voice-install
   reason, and carry on.
 
 Then make the automation from the blueprint, in a package so it is tracked and
-easy to remove (`packages/housemate_voice.yaml`, after checking that
-`configuration.yaml` loads packages; AGENTS.md says how):
+easy to remove (after checking that `configuration.yaml` loads packages; AGENTS.md
+says how). The command writes it, with the name:
 
-```yaml
-automation:
-  - id: housemate_voice_kickoff
-    alias: Housemate voice kick-off
-    use_blueprint:
-      path: housemate/voice_kickoff.yaml
-      input:
-        notify_service: notify.mobile_app_<their phone>   # "" if no phone
+```bash
+housemate-voice write-package "<the name>" "notify.mobile_app_<their phone>"
 ```
 
 Use the service you kept in step 4, or an empty string if there was none. Commit
@@ -280,7 +288,7 @@ tell them three things, briefly:
 
 1. **A trial that builds something real.** Do not suggest a "say hello" test.
    Suggest one sentence to type into Assist (the chat icon in Home Assistant, or
-   by voice), starting "Housemate, ...", asking for a common, useful automation
+   by voice), starting with the name they chose ("Housemate, ..." by default), asking for a common, useful automation
    made from their own house as the cheat sheet now describes it: a night light
    from a real light and a motion or presence sensor, a reminder to their phone,
    an away mode that switches off named lights, and so on, naming real entities in
