@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.44
+
+- The re-ask finds a chat whose title the terminal cut short (#48)
+
 ## 0.1.43
 
 - Choose the name you call Housemate by in Assist (#46)
