@@ -1,0 +1,433 @@
+#!/usr/bin/env python3
+"""Housemate suggestions: share an improvement upstream, scrubbed and reviewed.
+
+The built-in rules say when to offer; this tool is the parts that are code.
+Nothing here posts anything: `link` only builds a pre-filled GitHub Discussions
+link that the user opens in their own browser and submits themselves.
+
+    housemate-suggest state KEY                 new, declined or shared: has this item been offered?
+    housemate-suggest decline KEY               the user said no: never offer this item again
+    housemate-suggest shared KEY                the user posted it
+    housemate-suggest scrub [--file F] [--house FILE | --no-house]
+                                                text in (stdin or F), scrubbed text out; what was
+                                                replaced goes to stderr as counts, never as values
+    housemate-suggest link --title T --file F [--kind K] [--rest-file P]
+                                                the pre-filled link as JSON (mode full or short)
+    housemate-suggest notify --url U --title T  put the link in a notification and on the phone
+
+Scrubbing is deterministic and errs on the side of removing too much. The agent
+still rereads the result: a script cannot know every personal detail.
+Standard library only.
+"""
+
+import argparse
+import json
+import os
+import re
+import sys
+import urllib.parse
+
+CONFIG = os.environ.get("HOUSEMATE_CONFIG_DIR", "/config")
+STATE_FILE = os.path.join(CONFIG, ".housemate", "suggest.json")
+REST_FILE = os.path.join(CONFIG, ".housemate", "suggest", "rest.md")
+LIB = os.environ.get("HOUSEMATE_LIB", "/usr/lib/housemate")
+
+REPO = "jceccato/housemate"
+CATEGORY = "ideas"
+# Longest request line GitHub reliably accepts is about 8 KB; stay well under it.
+MAX_URL = 7000
+NOTE_MARK = "(Housemate:"
+KINDS = ["Skill", "Runbook or how-to", "Workflow or automation pattern", "Rule", "Other"]
+
+# -- scrubbing ------------------------------------------------------------------------------
+
+DOMAINS = (
+    "alarm_control_panel automation binary_sensor button calendar camera climate counter cover device_tracker "
+    "event fan group humidifier image input_boolean input_button input_datetime input_number input_select "
+    "input_text lawn_mower light lock media_player notify number person remote scene schedule script select "
+    "siren sensor sun switch text timer todo update vacuum valve water_heater weather zone"
+).split()
+FILE_EXT = {"yaml", "yml", "json", "py", "md", "txt", "sh", "js", "conf", "log", "db", "jpg", "png", "html", "css", "toml", "ini"}
+SERVICE_PREFIX = ("turn_", "set_", "reload", "select_", "send_", "play_", "media_", "open_", "close_", "volume_",
+                  "increment", "decrement", "toggle", "lock", "unlock", "trigger", "create", "remove", "restart",
+                  "stop", "start", "check_config", "update_entity", "dismiss", "press", "pause", "resume", "write_log",
+                  "snapshot", "clear_", "return_", "return", "get_", "cancel", "finish", "change", "mark_", "dismiss_",
+                  "enable", "disable", "stop_", "start_", "delete", "add_", "update", "save", "reset", "run", "call")
+PRIVATE_SUFFIXES = (".local", ".lan", ".home", ".internal", ".localdomain", ".home.arpa", ".duckdns.org",
+                    ".nabu.casa", ".dyndns.org", ".ddns.net", ".myfritz.net", ".corp", ".intranet")
+HOST_RE = (r"\b(?:[a-z0-9-]+\.)+(?:local|lan|home|internal|localdomain|home\.arpa|duckdns\.org|nabu\.casa|"
+           r"dyndns\.org|ddns\.net|myfritz\.net|intranet)(?![\w-])")
+
+URL_RE = re.compile(r"https?://[^\s<>\"')\]]+", re.I)
+PEM_RE = re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.S)
+KV_RE = re.compile(
+    r"(?i)\b((?:[a-z0-9_]*(?:api[_-]?key|token|password|passwd|passphrase|secret|credential)[a-z0-9_]*)"
+    r"|authorization)(\s*[:=]\s*)(\"[^\"\n]*\"|'[^'\n]*'|[^\s\"',;]+)")
+BEARER_RE = re.compile(r"(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{8,}")
+PREFIXED_RE = re.compile(r"\b(?:gh[pousr]_|github_pat_|xox[abposr]-|AKIA|AIza|glpat-|sk-|pk-|tk_)[A-Za-z0-9_-]{8,}")
+JWT_RE = re.compile(r"\beyJ[\w-]+\.[\w-]+\.[\w-]+")
+HEX_RE = re.compile(r"\b[0-9a-fA-F]{32,}\b")
+BLOB_RE = re.compile(r"(?<![\w/+=-])[A-Za-z0-9+/_-]{40,}={0,2}(?![\w/+=-])")
+EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+MAC_RE = re.compile(r"\b(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}\b")
+IP4_RE = re.compile(r"(?<![\d.])((?:\d{1,3}\.){3}\d{1,3})(?![\d])")
+H = r"[0-9a-fA-F]{1,4}"
+IP6_RE = re.compile(
+    rf"(?<![\w:])(?:(?:{H}:){{7}}{H}|(?:{H}:){{1,7}}:(?:{H}(?::{H}){{0,6}})?|::(?:{H}:){{0,6}}{H})(?![\w:])")
+COORD_KV_RE = re.compile(r"(?i)\b(lat(?:itude)?|lon(?:gitude)?|lng)(\s*[:=]\s*)(-?\d+\.\d+)")
+COORD_PAIR_RE = re.compile(r"(?<![\d.])-?\d{1,3}\.\d{4,}\s*,\s*-?\d{1,3}\.\d{4,}(?![\d])")
+ENTITY_RE = re.compile(rf"(?<![\w/-])({'|'.join(DOMAINS)})\.([a-z0-9_]+)\b")
+DOC_V4 = ("192.0.2.", "198.51.100.", "203.0.113.", "127.", "0.0.0.0")
+
+
+def scrub(text, house=None):
+    """Return (scrubbed text, {kind: count}). `house` is the registry data (see Scrub tests)."""
+    house = house or {}
+    counts = {}
+    seq = {"entity": 0, "ip4": {}, "ip6": {}, "name": {}}
+
+    def hit(kind):
+        counts[kind] = counts.get(kind, 0) + 1
+
+    ent_map = {}
+
+    # 1. private keys
+    def pem(_):
+        hit("secret")
+        return "<private key removed>"
+    text = PEM_RE.sub(pem, text)
+
+    # 2. URLs: drop credentials, query and fragment; a private host goes entirely
+    def url(m):
+        raw = m.group(0)
+        tail = ""
+        while raw and raw[-1] in ".,;:!?":
+            tail = raw[-1] + tail
+            raw = raw[:-1]
+        try:
+            p = urllib.parse.urlsplit(raw)
+            host = (p.hostname or "").lower()
+        except ValueError:
+            hit("url")
+            return "https://example.invalid" + tail
+        private = (not host or "." not in host or host.endswith(PRIVATE_SUFFIXES)
+                   or re.fullmatch(r"[\d.]+|[0-9a-f:]+", host) is not None)
+        if private:
+            hit("url")
+            return f"{p.scheme}://example.invalid" + tail
+        clean = f"{p.scheme}://{host}{p.path}"
+        if clean != raw:
+            hit("url")
+        return clean + tail
+    text = URL_RE.sub(url, text)
+
+    # 3. secrets
+    def simple(kind, repl):
+        def f(m):
+            hit(kind)
+            return repl(m) if callable(repl) else repl
+        return f
+    text = BEARER_RE.sub(simple("secret", lambda m: f"{m.group(1)} <secret>"), text)
+    def kv(m):
+        value = m.group(3)
+        bare = value.strip("\"'")
+        if bare.startswith(("!secret", "<", "$", "{{", "%")) or not bare:
+            return m.group(0)
+        hit("secret")
+        return f"{m.group(1)}{m.group(2)}<secret>"
+    text = KV_RE.sub(kv, text)
+
+    text = JWT_RE.sub(simple("secret", "<secret>"), text)
+    text = PREFIXED_RE.sub(simple("secret", "<secret>"), text)
+    text = HEX_RE.sub(simple("secret", "<secret>"), text)
+
+    def blob(m):
+        s = m.group(0)
+        if re.search(r"\d", s) and re.search(r"[A-Za-z]", s) and not s.startswith("example"):
+            hit("secret")
+            return "<secret>"
+        return s
+    text = BLOB_RE.sub(blob, text)
+
+    # 4. email, MAC, IP
+    def email(m):
+        if m.group(0).lower().endswith("@example.com"):
+            return m.group(0)
+        hit("email")
+        return "user@example.com"
+    text = EMAIL_RE.sub(email, text)
+    text = MAC_RE.sub(simple("mac", "00:00:00:00:00:00"), text)
+
+    def ip4(m):
+        ip = m.group(1)
+        parts = ip.split(".")
+        if any(int(p) > 255 for p in parts) or ip.startswith(DOC_V4):
+            return ip
+        if ip not in seq["ip4"]:
+            seq["ip4"][ip] = f"192.0.2.{len(seq['ip4']) + 1}"
+        hit("ip")
+        return seq["ip4"][ip]
+    text = IP4_RE.sub(ip4, text)
+
+    def ip6(m):
+        ip = m.group(0).lower()
+        if ip.startswith("2001:db8") or ip in ("::", "::1"):
+            return m.group(0)
+        if ip not in seq["ip6"]:
+            seq["ip6"][ip] = f"2001:db8::{len(seq['ip6']) + 1}"
+        hit("ip")
+        return seq["ip6"][ip]
+    text = IP6_RE.sub(ip6, text)
+
+    # 5. hostnames
+    def host(m):
+        if m.group(0).lower() == "host.example.invalid":
+            return m.group(0)
+        hit("host")
+        return "host.example.invalid"
+    text = re.sub(HOST_RE, host, text, flags=re.I)
+
+    # 6. coordinates
+    text = COORD_KV_RE.sub(simple("coordinate", lambda m: f"{m.group(1)}{m.group(2)}0.0"), text)
+    text = COORD_PAIR_RE.sub(simple("coordinate", "0.0000, 0.0000"), text)
+    for key in ("latitude", "longitude"):
+        value = house.get(key)
+        if isinstance(value, (int, float)):
+            whole, _, frac = f"{abs(value):.6f}".partition(".")
+            text = re.sub(r"(?<![\d.])-?" + whole + r"\." + frac[:3] + r"\d*", simple("coordinate", "0.0"), text)
+
+    # 7. entity ids
+    def entity(m):
+        domain, obj = m.group(1), m.group(2)
+        if obj in FILE_EXT or re.fullmatch(r"example(_\d+)?", obj) or obj.startswith(SERVICE_PREFIX):
+            return m.group(0)
+        key = (domain, obj)
+        if key not in ent_map:
+            seq["entity"] += 1
+            ent_map[key] = "example" if seq["entity"] == 1 else f"example_{seq['entity']}"
+        hit("entity")
+        return f"{domain}.{ent_map[key]}"
+    text = ENTITY_RE.sub(entity, text)
+
+    # 8. what the house's own registries say
+    terms = []
+    for kind, label in (("names", "Person"), ("areas", "Area"), ("devices", "Device"),
+                        ("friendly_names", "Name"), ("places", "Place")):
+        for term in house.get(kind, []) or []:
+            term = (term or "").strip()
+            pieces = [term] + ([w for w in re.split(r"\s+", term) if len(w) >= 3] if kind == "names" else [])
+            for piece in pieces:
+                if len(piece) >= 3:
+                    terms.append((piece, label))
+    for piece, label in sorted(set(terms), key=lambda t: -len(t[0])):
+        pattern = re.compile(r"(?<!\w)" + re.escape(piece) + r"(?!\w)", re.I)
+
+        def name(m, label=label, piece=piece):
+            hit("name")
+            k = (label, piece.lower())
+            if k not in seq["name"]:
+                seq["name"][k] = sum(1 for kk in seq["name"] if kk[0] == label) + 1
+            return f"{label} {seq['name'][k]}"
+        text = pattern.sub(name, text)
+    return text, counts
+
+
+# -- the link -------------------------------------------------------------------------------
+
+def _url(title, body, kind):
+    q = [("category", CATEGORY), ("title", title), ("body", body)]
+    if kind:
+        q.append(("kind", kind))
+    return f"https://github.com/{REPO}/discussions/new?" + urllib.parse.urlencode(q, quote_via=urllib.parse.quote)
+
+
+def _snap(text, n):
+    """The prefix of text up to n characters, cut at a paragraph, a line or a space when one is near."""
+    if n >= len(text):
+        return text
+    cut = text[:n]
+    for sep in ("\n\n", "\n", " "):
+        i = cut.rfind(sep)
+        if i >= n * 0.5:
+            return cut[:i]
+    return cut
+
+
+def build_link(title, body, kind=None):
+    """{"url", "mode": "full"|"short", "rest": text that did not fit, or None}."""
+    body = body.strip("\n")
+    url = _url(title, body, kind)
+    if len(url) <= MAX_URL:
+        return {"url": url, "mode": "full", "rest": None}
+    note = (f"\n\n{NOTE_MARK} the full text was too long for a link, so only the start is here. "
+            "The rest follows as the first comment.)")
+    lo, hi = 0, len(body)
+    while lo < hi:
+        mid = (lo + hi + 1) // 2
+        if len(_url(title, _snap(body, mid).rstrip() + note, kind)) <= MAX_URL:
+            lo = mid
+        else:
+            hi = mid - 1
+    head = _snap(body, lo).rstrip()
+    rest = body[len(head):].lstrip()
+    return {"url": _url(title, head + note, kind), "mode": "short", "rest": rest}
+
+
+# -- memory of what was offered ------------------------------------------------------------
+
+def _key(key):
+    return re.sub(r"\s+", " ", re.sub(r":\s*", ":", key.strip().lower()))
+
+
+def _load(path):
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def item_state(path, key):
+    return _load(path).get(_key(key), "new")
+
+
+def record(path, key, state):
+    data = _load(path)
+    data[_key(key)] = state
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+        f.write("\n")
+    os.replace(tmp, path)
+
+
+# -- Home Assistant -------------------------------------------------------------------------
+
+def read_house():
+    """Names, areas, devices and the home's place, from Home Assistant's registries."""
+    sys.path.insert(0, LIB)
+    import kickoff  # the Supervisor websocket client the kick-off endpoint already uses
+    ask = kickoff.websocket_call
+    states = ask({"type": "get_states"})
+    devices = ask({"type": "config/device_registry/list"})
+    areas = ask({"type": "config/area_registry/list"})
+    try:
+        config = ask({"type": "get_config"})
+    except Exception:  # noqa: BLE001 - the place is one signal among several
+        config = {}
+    persons = [s["attributes"].get("friendly_name", "") for s in states if s["entity_id"].startswith("person.")]
+    # One-word entity names (Temperature, Humidity) would eat ordinary words: only fuller names are taken.
+    friendly = [s["attributes"].get("friendly_name", "") for s in states
+                if not s["entity_id"].startswith(("person.", "update.", "sun.", "zone."))]
+    friendly = [n for n in friendly if len(n.split()) >= 2]
+    return {
+        "names": persons,
+        "areas": [a.get("name", "") for a in areas],
+        "devices": [d.get("name_by_user") or d.get("name") or "" for d in devices],
+        "friendly_names": friendly,
+        "places": [config.get("location_name", "")],
+        "latitude": config.get("latitude"),
+        "longitude": config.get("longitude"),
+    }
+
+
+def supervisor(path, body):
+    import urllib.request
+    base = os.environ.get("HOUSEMATE_SUPERVISOR_URL", "http://supervisor")
+    req = urllib.request.Request(base + path, data=json.dumps(body).encode(), method="POST",
+                                 headers={"Authorization": "Bearer " + os.environ["SUPERVISOR_TOKEN"],
+                                          "Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=15) as r:
+        r.read()
+
+
+def cmd_notify(url, title):
+    if not os.environ.get("SUPERVISOR_TOKEN"):
+        raise SystemExit("SUPERVISOR_TOKEN is not set: run this inside the Housemate add-on")
+    message = "Your suggestion is ready. Open the link, sign in to GitHub and press Submit; nothing is posted until you do."
+    supervisor("/core/api/services/persistent_notification/create", {
+        "title": title, "message": f"{message}\n\n[Open the pre-filled suggestion]({url})",
+        "notification_id": "housemate_suggestion"})
+    target = ""
+    try:
+        with open(os.environ.get("HOUSEMATE_OPTIONS", "/data/options.json")) as f:
+            target = json.load(f).get("review_notify", "") or ""
+    except (OSError, ValueError):
+        pass
+    if re.fullmatch(r"notify\.[a-z0-9_]+", target):
+        supervisor("/core/api/services/notify/" + target.split(".", 1)[1], {
+            "title": title, "message": message, "data": {"url": url, "clickAction": url}})
+        print("Notified the persistent notification and the phone.")
+    else:
+        print("Notified the persistent notification (no phone is chosen for notifications).")
+
+
+# -- command line -------------------------------------------------------------------------
+
+def read_text(path):
+    if path:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    return sys.stdin.read()
+
+
+def main(argv):
+    ap = argparse.ArgumentParser(prog="housemate-suggest", description=__doc__.split("\n\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    for name in ("state", "decline", "shared"):
+        sub.add_parser(name).add_argument("key")
+    s = sub.add_parser("scrub")
+    s.add_argument("--file")
+    g = s.add_mutually_exclusive_group()
+    g.add_argument("--house", help="registry data as JSON (names, areas, devices, friendly_names, places, latitude, longitude)")
+    g.add_argument("--no-house", action="store_true", help="do not ask Home Assistant for its registries")
+    l = sub.add_parser("link")
+    l.add_argument("--title", required=True)
+    l.add_argument("--file")
+    l.add_argument("--kind", choices=KINDS)
+    l.add_argument("--rest-file", default=REST_FILE)
+    n = sub.add_parser("notify")
+    n.add_argument("--url", required=True)
+    n.add_argument("--title", default="Housemate: your suggestion is ready")
+    a = ap.parse_args(argv)
+
+    if a.cmd == "state":
+        print(item_state(STATE_FILE, a.key))
+    elif a.cmd in ("decline", "shared"):
+        record(STATE_FILE, a.key, "declined" if a.cmd == "decline" else "shared")
+    elif a.cmd == "scrub":
+        text = read_text(a.file)
+        if a.house:
+            with open(a.house) as f:
+                house = json.load(f)
+        elif a.no_house:
+            house = {}
+        else:
+            try:
+                house = read_house()
+            except Exception as e:  # noqa: BLE001
+                print(f"warning: could not read the house's registries ({e}); only patterns were scrubbed. "
+                      "Reread the text for names with extra care.", file=sys.stderr)
+                house = {}
+        out, counts = scrub(text, house)
+        sys.stdout.write(out)
+        summary = ", ".join(f"{v} {k}" for k, v in sorted(counts.items())) or "nothing matched"
+        print(f"\nscrubbed: {summary}", file=sys.stderr)
+    elif a.cmd == "link":
+        link = build_link(a.title, read_text(a.file), a.kind)
+        if link["rest"]:
+            os.makedirs(os.path.dirname(a.rest_file), exist_ok=True)
+            with open(a.rest_file, "w", encoding="utf-8") as f:
+                f.write(link["rest"] + "\n")
+        print(json.dumps({"url": link["url"], "mode": link["mode"], "url_chars": len(link["url"]),
+                          "rest_file": a.rest_file if link["rest"] else None,
+                          "rest_chars": len(link["rest"] or "")}))
+    elif a.cmd == "notify":
+        cmd_notify(a.url, a.title)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

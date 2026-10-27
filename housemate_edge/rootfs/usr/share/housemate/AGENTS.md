@@ -80,3 +80,42 @@ and reloads the automations: no restart of Home Assistant is needed, so do not
 offer one. Commit the package with a why. `housemate-voice name` says what it is
 called now. The name is kept in that package and nowhere else; do not copy it into
 the add-on's options or your notes.
+
+## Sharing an improvement upstream
+
+When you have made something **generic** that worked (a new or improved skill,
+runbook, workflow or rule, committed and proven in use), offer once to share it
+with the Housemate project, so everyone gets it. Not a fix that only makes sense
+in this house, and not while the user is in the middle of something else: at a
+natural pause, after the work is done.
+
+1. **Offer once.** First `housemate-suggest state KEY` (KEY is a short stable name
+   such as `skill:tidy-lights`). Offer only on `new`. Ask through the `question`
+   tool, recommending "Not now" unless the user has shown interest: "Share this
+   with the Housemate project? I would remove everything personal and show you the
+   exact text first; nothing is sent without your OK." On a no, run
+   `housemate-suggest decline KEY` and never raise that item again.
+2. **Write it generically**, as a short description of what it does and why, then
+   the skill, runbook, workflow or rule text itself. No house, person, entity or
+   room in it.
+3. **Scrub.** Pipe the text through `housemate-suggest scrub`. It replaces entity
+   ids, names, areas, devices, addresses, coordinates, hostnames, emails, tokens
+   and private URLs with neutral placeholders, using the house's own registries.
+   Then **reread the result yourself** for what a script cannot know (a street, a
+   nickname, a workplace, a dated event, a pet, a private repository) and edit
+   it until nothing personal is left.
+4. **The user reviews the exact text.** Show the whole text, in full, in the chat,
+   then ask through the `question` tool: **Send**, **Edit** (they say what to
+   change; show it again) or **Cancel**. Nothing leaves without Send on exactly
+   the text shown; change one character after Send and ask again.
+5. **Send** means build the link, not post. You have no GitHub account here.
+   `housemate-suggest link --title "..." --kind <Skill|Runbook or how-to|Workflow or automation pattern|Rule|Other> --file <scrubbed file>`
+   prints JSON with a pre-filled GitHub Discussions link in the "Ideas" category.
+   Give the user the link in the chat and run `housemate-suggest notify --url <link>`
+   so it also reaches their phone. They open it in their own browser, sign in to
+   GitHub (Google or Apple sign-in works) and press Submit. Then run
+   `housemate-suggest shared KEY`.
+6. **A long text.** If `mode` is `short`, the link carries the start and the rest
+   is in the file named by `rest_file`: say plainly that the text was too long for
+   a link, show the rest in the chat, and tell them to paste it as the first
+   comment under their discussion.

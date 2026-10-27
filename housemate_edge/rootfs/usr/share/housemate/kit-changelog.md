@@ -33,5 +33,11 @@ The first kit, as it is first copied into `/config`:
 - **A name of your own for voice.** Onboarding asks what you want to call Housemate in Assist
   ("Jarvis, build me ..."); the default is "Housemate". Ask the agent to change it later;
   no restart is needed.
+- **Sharing an improvement.** When the agent builds something generic that works,
+  it offers once to share it with the Housemate project (a no is remembered). It
+  removes everything personal with `housemate-suggest scrub`, shows you the exact
+  text for Send, Edit or Cancel, and then gives you a pre-filled GitHub
+  Discussions link to open and submit yourself; the add-on holds no GitHub
+  credentials.
 - **First run starts itself.** The first time the panel opens, a chat called
   "Welcome to Housemate" begins onboarding without you typing anything.

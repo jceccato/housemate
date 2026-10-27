@@ -50,6 +50,9 @@ anything can be undone with a sentence.
   twice (install, then restart).
 - **It learns your house**: after committing work it reviews it, updates its
   notes, and turns anything it does twice into a script.
+- **Shares what works, only if you say so**: when it builds something generic
+  and useful, it offers to suggest it to this project (see
+  [Sharing an improvement](#sharing-an-improvement-with-the-project)).
 
 Everything is described in more detail in the add-on's **Documentation** tab
 ([`housemate_edge/DOCS.md`](housemate_edge/DOCS.md)).
@@ -161,6 +164,34 @@ been promoted yet, so only edge is in the store;** this section and the install
 steps change when stable is published. OpenCode and code-server are pinned and
 never update themselves; they change only when the add-on does.
 The pipeline is described in [docs/update-pipeline.md](docs/update-pipeline.md).
+
+## Sharing an improvement with the project
+
+When the agent builds something generic that works (a better skill, runbook,
+workflow or rule), it offers once to share it with the Housemate project, so
+everyone gets it. Say no and it will not ask about that item again.
+
+- **Nothing is sent without you.** The add-on holds no GitHub account or
+  credentials. It prepares a link; you open it in your own browser, sign in to
+  GitHub and press **Submit**.
+- **What is removed first.** A script replaces entity ids, the names of people,
+  areas and devices (read from your own Home Assistant), addresses, coordinates,
+  IP and MAC addresses, hostnames, email addresses, private links, tokens and keys
+  with neutral placeholders (`light.example`, `Area 1`, `192.0.2.1`). It errs on
+  the side of removing too much (an area called "Kitchen" is replaced even in an
+  ordinary sentence). The agent then rereads the result for anything the script
+  cannot know, such as a street or a nickname.
+- **You see the exact text.** It is shown in full and you choose **Send**,
+  **Edit** or **Cancel**. Send does not post anything: it gives you the link, in
+  the chat and as a notification on your phone, and the discussion opens already
+  filled in under "Ideas" using the "Suggestion from Housemate" form. Read it once
+  more and press Submit. It is public and carries your GitHub name.
+- **A long text.** A link can only carry about 7,000 characters. If yours is
+  longer, the agent says so, the link carries the start, and the agent shows you
+  the rest to paste as the first comment.
+- **A GitHub account without a new password.** Go to <https://github.com/signup>
+  and choose **Continue with Google** or **Continue with Apple**; the same button
+  signs you in later.
 
 ## Hardware
 

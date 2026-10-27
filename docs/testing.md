@@ -15,7 +15,7 @@ docker build -t housemate-edge:dev housemate_edge
 HOUSEMATE_IMAGE=housemate-edge:dev python3 -m unittest discover -s tests/seam_a -v
 ```
 
-Other suites need no container: `tests/pipeline`, `tests/kit`, `tests/updates` and
+Other suites need no container: `tests/pipeline`, `tests/kit`, `tests/updates`, `tests/suggest` and
 `tests/panel`, each run with `python3 -m unittest discover -s <dir>`.
 
 ## Cleaning up
