@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.45
+
+- Share an improvement upstream, scrubbed and reviewed (#47)
+
 ## 0.1.44
 
 - The re-ask finds a chat whose title the terminal cut short (#48)
