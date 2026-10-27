@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.40
+
+- Notification links name their chat; the panel opens it in front (#43)
+
 ## 0.1.39
 
 - Update https://github.com/mattpocock/skills digest to 59db609 (#41)
