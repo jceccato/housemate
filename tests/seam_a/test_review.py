@@ -203,10 +203,9 @@ class ReviewResume(Base, unittest.TestCase):
     def restart_and_wait_for_the_decision(self):
         """Restart, then wait until the add-on has decided whether to carry on, so that a test that
         expects it NOT to has seen the decision rather than waited a guessed time on a slow runner."""
-        before = self.decisions()
-        self.restart()
+        self.restart()  # a new container: its log starts empty
         for _ in range(120):
-            if self.decisions() > before:
+            if self.decisions() >= 1:
                 time.sleep(2)
                 return
             time.sleep(1)
