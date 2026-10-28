@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.46
+
+- Update dependency anomalyco/opencode to v1.19.5 (#49)
+
 ## 0.1.45
 
 - Share an improvement upstream, scrubbed and reviewed (#47)
