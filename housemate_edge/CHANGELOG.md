@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.49
+
+- Update https://github.com/mattpocock/skills digest to 4ae2317 (#52)
+
 ## 0.1.48
 
 - Update dependency coder/code-server to v4.144.0 (#51)
