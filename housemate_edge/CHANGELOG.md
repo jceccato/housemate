@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.52
+
+- Update dependency coder/code-server to v4.145.2 (#55)
+
 ## 0.1.51
 
 - Update ghcr.io/hassio-addons/debian-base Docker tag to v9.5.2 (#54)
