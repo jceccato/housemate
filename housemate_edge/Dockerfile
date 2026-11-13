@@ -20,9 +20,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # *baseline* build, because the regular one needs AVX2 and a Home Assistant
 # guest may sit on a baseline virtual CPU.
 # renovate: datasource=github-releases depName=anomalyco/opencode extractVersion=^v(?<version>.+)$
-ARG OPENCODE_VERSION=1.19.5
-ARG OPENCODE_SHA256_AMD64=17c200fd4b2289954cc01552559f9b6d03ec157b2ddfb5eb54144f491656333d
-ARG OPENCODE_SHA256_AARCH64=fae5be262d693b7c5e562856cc473e59e741772936db0c0600ac0d5ed5bd088b
+ARG OPENCODE_VERSION=2.3.0
+ARG OPENCODE_SHA256_AMD64=fc0f81522aceeabac47693d88389efa2bc517ce74c2c38fd6967819fcc6e4d3b
+ARG OPENCODE_SHA256_AARCH64=3207fb5cdec448d479242c0f1a14f4f7bdfcad3a79209b5eb8f9003725e93711
 
 # code-server https://github.com/coder/code-server/releases (MIT).
 # renovate: datasource=github-releases depName=coder/code-server extractVersion=^v(?<version>.+)$
