@@ -21,8 +21,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # guest may sit on a baseline virtual CPU.
 # renovate: datasource=github-releases depName=anomalyco/opencode extractVersion=^v(?<version>.+)$
 ARG OPENCODE_VERSION=1.19.6
-ARG OPENCODE_SHA256_AMD64=17c200fd4b2289954cc01552559f9b6d03ec157b2ddfb5eb54144f491656333d
-ARG OPENCODE_SHA256_AARCH64=fae5be262d693b7c5e562856cc473e59e741772936db0c0600ac0d5ed5bd088b
+ARG OPENCODE_SHA256_AMD64=8443113b3f3dfebf8b0fa91c4377e5519a62b9231732d9344a5df001e4a852b3
+ARG OPENCODE_SHA256_AARCH64=5b68c1f4c5e75b4134e664cc8f36d634d64208d4fcfe5bcf3b48bab699c2dbac
 
 # code-server https://github.com/coder/code-server/releases (MIT).
 # renovate: datasource=github-releases depName=coder/code-server extractVersion=^v(?<version>.+)$
