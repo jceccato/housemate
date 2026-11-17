@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.53
+
+- Update dependency anomalyco/opencode to v1.19.6 (#57)
+- Update https://github.com/mattpocock/skills digest to 5863806 (#56)
+
 ## 0.1.52
 
 - Update dependency coder/code-server to v4.145.2 (#55)
