@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.54
+
+- Update https://github.com/mattpocock/skills digest to abeeaf9 (#58)
+
 ## 0.1.53
 
 - Update dependency anomalyco/opencode to v1.19.6 (#57)
