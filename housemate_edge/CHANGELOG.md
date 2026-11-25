@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.55
+
+- Update https://github.com/mattpocock/skills digest to d653911 (#60)
+
 ## 0.1.54
 
 - Update https://github.com/mattpocock/skills digest to abeeaf9 (#58)
