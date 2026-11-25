@@ -26,7 +26,7 @@ ARG OPENCODE_SHA256_AARCH64=5b68c1f4c5e75b4134e664cc8f36d634d64208d4fcfe5bcf3b48
 
 # code-server https://github.com/coder/code-server/releases (MIT).
 # renovate: datasource=github-releases depName=coder/code-server extractVersion=^v(?<version>.+)$
-ARG CODE_SERVER_VERSION=4.145.2
+ARG CODE_SERVER_VERSION=4.146.0
 ARG CODE_SERVER_SHA256_AMD64=2f6db6c3e8b733dd6b3aeee83532e148b2bae2e392353ba85452d03572348962
 ARG CODE_SERVER_SHA256_AARCH64=e867a34416e2da4a83496b09580001893e7a4e5bb58a0624c4fcd22819e7d53d
 
