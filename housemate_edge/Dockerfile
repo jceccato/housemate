@@ -113,7 +113,7 @@ COPY rootfs /
 # user-invoked. Only the commit is checked out, and the fetch refuses a commit
 # that is not the one named.
 # renovate: git-refs https://github.com/mattpocock/skills main
-ARG MATT_SKILLS_REVISION=d65391149dbb5fe76478e76fa8d5122b2aa5a70e
+ARG MATT_SKILLS_REVISION=6f7f7831a625f040a8e06a0e7954826b87ce775a
 COPY build/vendor_skills.py /tmp/vendor_skills.py
 RUN \
     git init -q /tmp/skills \
