@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.58
+
+- Update ghcr.io/hassio-addons/debian-base Docker tag to v9.6.0 (#62)
+
 ## 0.1.57
 
 - Update https://github.com/mattpocock/skills digest to 6f7f783 (#61)
