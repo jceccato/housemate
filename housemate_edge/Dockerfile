@@ -10,7 +10,7 @@
 
 # hassio-addons Debian base, by tag and index digest. Renovate reads this line
 # (renovate.json, customManagers); keep its shape.
-ARG BUILD_FROM=ghcr.io/hassio-addons/debian-base:9.5.2@sha256:1faf86975f6215114064f597c1b8cc03f3793ff15f2bd1cad5989a675a541062
+ARG BUILD_FROM=ghcr.io/hassio-addons/debian-base:9.6.0@sha256:d33ea7a92d8d59a654658eb6d1ec9a312f09e80448417f55a494182707393339
 # hadolint ignore=DL3006
 FROM ${BUILD_FROM}
 
